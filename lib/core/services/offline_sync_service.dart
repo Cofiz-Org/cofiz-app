@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/cloudinary_config.dart';
-import '../config/relay_config.dart';
+import '../models/debt_model.dart';
 import '../models/transaction_model.dart';
 import '../utils/receipt_image_utils.dart';
 import '../utils/transaction_balance.dart' as tb;
@@ -14,8 +14,9 @@ import '../utils/transaction_balance.dart' show TransactionLockedException;
 import 'connectivity_service.dart';
 import 'notification_trigger_service.dart';
 import 'offline_cache_service.dart';
+import 'push_relay_service.dart';
 
-// shared with TransactionService — keep in sync (delegates to transaction_balance.dart)
+
 typedef OfflineSyncLockedException = TransactionLockedException;
 
 class OfflineSyncService {
@@ -28,7 +29,7 @@ class OfflineSyncService {
 
   FirebaseFirestore? _firestore;
 
-  /// Production uses FirebaseFirestore.instance; tests inject a fake.
+  
   FirebaseFirestore get firestore => _firestore ??= FirebaseFirestore.instance;
 
   @visibleForTesting
@@ -46,7 +47,7 @@ class OfflineSyncService {
     await _connectivity.initialize();
     debugPrint('[Sync] initialize: connectivity ready');
 
-    // Listen for connectivity changes
+    
     _connectivity.connectionStatus.listen((isOnline) {
       debugPrint('[Sync] connectivity changed isOnline=$isOnline');
       if (isOnline && !_isSyncing) {
@@ -60,7 +61,7 @@ class OfflineSyncService {
     });
   }
 
-  /// Cancels the periodic retry timer. Call on app shutdown / test teardown.
+  
   void dispose() {
     _periodicTimer?.cancel();
     _periodicTimer = null;
@@ -82,8 +83,8 @@ class OfflineSyncService {
     debugPrint('📡 Starting sync of pending operations...');
 
     try {
-      // Failed ops (attempts>=5) are retried with a fresh budget on every
-      // sync pass; user-discarded ops are excluded via tombstones.
+      
+      
       await _cache.requeueFailedOperations();
       final pendingOps = _cache.getPendingOperations();
       debugPrint('📡 Found ${pendingOps.length} pending operations');
@@ -111,7 +112,7 @@ class OfflineSyncService {
         }
       }
 
-      // Merge ops queued while syncing to avoid lost-update race (snapshot -> replace overwrites).
+      
       final snapshotIds = <String>{
         for (final op in pendingOps)
           if (op['opId'] is String) op['opId'] as String
@@ -128,15 +129,15 @@ class OfflineSyncService {
     }
   }
 
-  /// Merges the ops that survived this sync pass ([remaining]) with the live
-  /// box contents ([current], which may hold coalesced edits queued while the
-  /// sync was in flight). For an opId present in both, the CURRENT entry wins
-  /// whenever it differs from the remaining copy — the user's newer coalesced
-  /// edit must not be clobbered by the stale pre-sync payload. Entries only in
-  /// [current] are appended only when [snapshotIds] never saw their opId:
-  /// snapshot ops that are no longer remaining were either delivered or moved
-  /// to the failed box and must not be resurrected. Bookkeeping fields
-  /// ('attempts') are ignored when comparing.
+  
+  
+  
+  
+  
+  
+  
+  
+  
   @visibleForTesting
   static List<Map<String, dynamic>> mergeRemainingWithCurrent(
     List<Map<String, dynamic>> remaining,
@@ -156,8 +157,8 @@ class OfflineSyncService {
     return merged;
   }
 
-  /// Equality ignoring the 'attempts' bookkeeping field; payloads compared
-  /// deep so a coalesced payload change is always detected.
+  
+  
   static bool _sameOperation(Map<String, dynamic> a, Map<String, dynamic> b) {
     bool deepEq(Object? x, Object? y) {
       if (x is Map && y is Map) {
@@ -211,7 +212,7 @@ class OfflineSyncService {
     return secureUrl;
   }
 
-  // shared with TransactionService — keep in sync
+  
   void _enforceLock(
     MoneyTransaction transaction, {
     required String? overrideReason,
@@ -220,9 +221,88 @@ class OfflineSyncService {
       tb.enforceTransactionLock(transaction,
           overrideReason: overrideReason, action: action);
 
-  // shared with TransactionService — keep in sync
+  
   Map<String, dynamic> _balanceUpdates(MoneyTransaction t, int direction) =>
       tb.transactionBalanceUpdates(t, direction);
+
+  static const double _debtEpsilon = 0.005;
+
+  Future<void> _reconcileBalanceDebt(String workerId) async {
+    try {
+      final snap =
+          await firestore.collection('workers').doc(workerId).get();
+      if (!snap.exists) return;
+      final data = snap.data() ?? <String, dynamic>{};
+      final balance =
+          ((data['currentBalance']) as num?)?.toDouble() ?? 0.0;
+      final name = (data['name'] as String?) ?? 'Collector';
+      final debtsSnap = await firestore
+          .collection('debts')
+          .where('collectorId', isEqualTo: workerId)
+          .get();
+      final autoOpen = debtsSnap.docs.where((d) {
+        final m = d.data();
+        return m['source'] == 'balance' &&
+            m['status'] == DebtStatus.open.name;
+      }).toList();
+      final deficit = balance < -_debtEpsilon ? -balance : 0.0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (deficit > 0) {
+        if (autoOpen.isEmpty) {
+          await firestore.collection('debts').add({
+            'collectorId': workerId,
+            'collectorName': name,
+            'source': 'balance',
+            'purchaseId': '',
+            'totalAmount': deficit,
+            'coveredAmount': 0.0,
+            'forgivenAmount': deficit,
+            'status': DebtStatus.open.name,
+            'createdAt': nowMs,
+            'notes': 'Auto-recorded negative balance',
+            'createdBy': 'system',
+            'creditorName': 'Company',
+          });
+          await NotificationTriggerService().notifyDebtRecorded(
+            collectorId: workerId,
+            collectorName: name,
+            forgivenAmount: deficit,
+            totalAmount: deficit,
+            source: 'balance',
+            creditorName: 'Company',
+          );
+        } else {
+          final first = autoOpen.first;
+          final current =
+              ((first.data()['forgivenAmount']) as num?)?.toDouble() ?? 0.0;
+          if ((current - deficit).abs() > _debtEpsilon) {
+            await first.reference.update({'forgivenAmount': deficit});
+          }
+          for (final extra in autoOpen.skip(1)) {
+            await extra.reference.update({
+              'status': DebtStatus.paid.name,
+              'paidAt': nowMs,
+            });
+          }
+        }
+      } else if (autoOpen.isNotEmpty) {
+        var cleared = 0.0;
+        for (final d in autoOpen) {
+          cleared +=
+              ((d.data()['forgivenAmount']) as num?)?.toDouble() ?? 0.0;
+          await d.reference.update({
+            'status': DebtStatus.paid.name,
+            'paidAt': nowMs,
+          });
+        }
+        await NotificationTriggerService().notifyDebtRepaid(
+          collectorId: workerId,
+          collectorName: name,
+          amount: cleared,
+        );
+      }
+    } catch (_) {}
+  }
 
   Future<void> _executeOperation(Map<String, dynamic> operation) async {
     final type = operation['type'] as String;
@@ -267,9 +347,9 @@ class OfflineSyncService {
           if (localReceiptPath != null && localReceiptPath.isNotEmpty) {
             final uploaded = await _uploadReceipt(localReceiptPath);
             if (uploaded == null) {
-              // Missing/corrupt receipt file: throw so the op stays queued
-              // and retries instead of committing a transaction whose
-              // receipt is silently lost forever.
+              
+              
+              
               throw 'Receipt unavailable for $docId (compress/upload returned null)';
             }
             receiptUrl = uploaded;
@@ -278,6 +358,7 @@ class OfflineSyncService {
             final ref = firestore.collection('transactions').doc(docId);
             final snap = await txn.get(ref);
             if (snap.exists) return;
+            final workerRef = firestore.collection('workers').doc(workerId);
             txn.set(ref, {
               'workerId': workerId,
               'workerName': operation['workerName'],
@@ -296,8 +377,10 @@ class OfflineSyncService {
                 'pricePerKg': operation['pricePerKg'],
               if (operation['commissionAmount'] != null)
                 'commissionAmount': operation['commissionAmount'],
+              if (operation['forgivenAmount'] != null)
+                'forgivenAmount': operation['forgivenAmount'],
+              'isDebt': ((operation['forgivenAmount'] as num?)?.toDouble() ?? 0.0) > 0,
             });
-            final workerRef = firestore.collection('workers').doc(workerId);
             final lastActiveAt = operation['createdAt'] as int? ??
                 DateTime.now().millisecondsSinceEpoch;
             if (txType == 'distribution') {
@@ -327,8 +410,9 @@ class OfflineSyncService {
               txn.update(workerRef, updates);
             }
           });
-          // Post-commit side effects (queue-first refactor orphaned the
-          // old in-process trigger): fire best-effort, never fail the op.
+          await _reconcileBalanceDebt(workerId);
+          
+          
           _fireTransactionNotifications(
             workerId: workerId,
             txType: txType,
@@ -368,6 +452,9 @@ class OfflineSyncService {
 
             final receiverRef =
                 firestore.collection('transactions').doc(receiverDocId);
+            final fromRef = firestore.collection('workers').doc(fromWorkerId);
+            final toRef = firestore.collection('workers').doc(toWorkerId);
+            await txn.get(toRef);
 
             final base = {
               'type': 'transfer',
@@ -402,8 +489,6 @@ class OfflineSyncService {
               'transferRole': 'receiver',
             });
 
-            final fromRef = firestore.collection('workers').doc(fromWorkerId);
-            final toRef = firestore.collection('workers').doc(toWorkerId);
             txn.update(fromRef, {
               'currentBalance': FieldValue.increment(-amount),
               'totalReturned': FieldValue.increment(amount),
@@ -413,6 +498,10 @@ class OfflineSyncService {
               'totalDistributed': FieldValue.increment(amount),
             });
           });
+          await _reconcileBalanceDebt(fromWorkerId);
+          if (toWorkerId != fromWorkerId) {
+            await _reconcileBalanceDebt(toWorkerId);
+          }
         }
         break;
       case 'createIncome':
@@ -480,6 +569,56 @@ class OfflineSyncService {
           });
         }
         break;
+      case 'createDebt':
+        {
+          final docId =
+              (operation['docId'] as String?) ?? (operation['opId'] as String);
+          final data =
+              Map<String, dynamic>.from(operation['payload'] as Map);
+          await firestore.runTransaction((txn) async {
+            final ref = firestore.collection('debts').doc(docId);
+            final snap = await txn.get(ref);
+            if (snap.exists) return;
+            txn.set(ref, data);
+          });
+          try {
+            await NotificationTriggerService().notifyDebtRecorded(
+              collectorId: data['collectorId'] as String? ?? '',
+              collectorName: data['collectorName'] as String? ?? '',
+              forgivenAmount:
+                  (data['forgivenAmount'] as num?)?.toDouble() ?? 0.0,
+              totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 0.0,
+              source: data['source'] as String? ?? 'purchase',
+              creditorName: data['creditorName'] as String? ?? '',
+            );
+          } catch (_) {}
+        }
+        break;
+      case 'markDebtPaid':
+        {
+          final docId = operation['docId'] as String;
+          final data = Map<String, dynamic>.from(operation['payload'] as Map);
+          await firestore.runTransaction((txn) async {
+            final ref = firestore.collection('debts').doc(docId);
+            final snap = await txn.get(ref);
+            if (!snap.exists) return;
+            txn.update(ref, data);
+          });
+          try {
+            final snap =
+                await firestore.collection('debts').doc(docId).get();
+            final m = snap.data();
+            if (m != null) {
+              await NotificationTriggerService(firestore: firestore)
+                  .notifyDebtRepaid(
+                collectorId: m['collectorId'] as String? ?? '',
+                collectorName: m['collectorName'] as String? ?? '',
+                amount: (m['forgivenAmount'] as num?)?.toDouble() ?? 0.0,
+              );
+            }
+          } catch (_) {}
+        }
+        break;
       case 'updateIncome':
         {
           final docId = operation['docId'] as String;
@@ -532,9 +671,9 @@ class OfflineSyncService {
           final overrideReason = operation['overrideReason'] as String?;
           final payload =
               Map<String, dynamic>.from(operation['payload'] as Map);
-          // Receipt captured offline for an edit: upload before commit; a
-          // null result throws so the op stays queued and retries rather
-          // than losing the newly attached receipt.
+          
+          
+          
           final localReceiptPath = operation['localReceiptPath'] as String?;
           String? uploadedReceiptUrl;
           if (localReceiptPath != null && localReceiptPath.isNotEmpty) {
@@ -576,6 +715,17 @@ class OfflineSyncService {
               if (uploadedReceiptUrl != null) 'receiptUrl': uploadedReceiptUrl,
             });
           });
+          final updatedWorker = payload['workerId'] as String?;
+          final revertedWorker =
+              (operation['previous'] as Map?)?['workerId'] as String?;
+          if (updatedWorker != null && updatedWorker.isNotEmpty) {
+            await _reconcileBalanceDebt(updatedWorker);
+          }
+          if (revertedWorker != null &&
+              revertedWorker.isNotEmpty &&
+              revertedWorker != updatedWorker) {
+            await _reconcileBalanceDebt(revertedWorker);
+          }
           break;
         }
       case 'deleteTransaction':
@@ -592,9 +742,9 @@ class OfflineSyncService {
               throw 'Use transfer delete for transfers.';
             }
             _enforceLock(tx, overrideReason: overrideReason, action: 'delete');
-            // Authoritative sufficiency recheck: deleting a distribution
-            // removes money from the worker; never drive currentBalance
-            // below zero even if the balance shifted since queue-time.
+            
+            
+            
             if (tx.type.toLowerCase() == 'distribution') {
               final workerSnap = await txn
                   .get(firestore.collection('workers').doc(tx.workerId));
@@ -610,6 +760,11 @@ class OfflineSyncService {
             if (updates.isNotEmpty) txn.update(workerRef, updates);
             txn.delete(ref);
           });
+          final deletedWorker =
+              (operation['previous'] as Map?)?['workerId'] as String?;
+          if (deletedWorker != null && deletedWorker.isNotEmpty) {
+            await _reconcileBalanceDebt(deletedWorker);
+          }
           break;
         }
       case 'deleteTransfer':
@@ -619,8 +774,19 @@ class OfflineSyncService {
           final overrideReason = operation['overrideReason'] as String?;
           final senderDocId = operation['senderDocId'] as String?;
           final receiverDocId = operation['receiverDocId'] as String?;
-          // Prefer explicit docIds if present (stored at queue time), else fallback to query
-          // Firestore transactions require all reads before writes — collect snaps first.
+          final transferWorkerIds = <String>{};
+          try {
+            final legs = await firestore
+                .collection('transactions')
+                .where('transferId', isEqualTo: transferId)
+                .get();
+            for (final leg in legs.docs) {
+              final wid = leg.data()['workerId'] as String?;
+              if (wid != null && wid.isNotEmpty) transferWorkerIds.add(wid);
+            }
+          } catch (_) {}
+          
+          
           if (senderDocId != null || receiverDocId != null) {
             final docIds = <String>[
               if (senderDocId != null) senderDocId,
@@ -631,7 +797,7 @@ class OfflineSyncService {
               for (final docId in docIds) {
                 final snap = await txn
                     .get(firestore.collection('transactions').doc(docId));
-                snaps.add(snap as DocumentSnapshot<Map<String, dynamic>>);
+                snaps.add(snap);
               }
               for (final snap in snaps) {
                 if (!snap.exists) continue;
@@ -646,7 +812,7 @@ class OfflineSyncService {
                 txn.delete(snap.reference);
               }
             });
-            // Also handle any additional docs matching transferId that weren't in explicit list (safety)
+            
             final snapshot = await firestore
                 .collection('transactions')
                 .where('transferId', isEqualTo: transferId)
@@ -659,7 +825,7 @@ class OfflineSyncService {
                 for (final doc in remaining) {
                   final snap = await txn
                       .get(firestore.collection('transactions').doc(doc.id));
-                  snaps.add(snap as DocumentSnapshot<Map<String, dynamic>>);
+                snaps.add(snap);
                 }
                 for (final snap in snaps) {
                   if (!snap.exists) continue;
@@ -675,6 +841,9 @@ class OfflineSyncService {
                 }
               });
             }
+            for (final wid in transferWorkerIds) {
+              await _reconcileBalanceDebt(wid);
+            }
             break;
           }
           final snapshot = await firestore
@@ -687,7 +856,7 @@ class OfflineSyncService {
             for (final doc in snapshot.docs) {
               final snap = await txn
                   .get(firestore.collection('transactions').doc(doc.id));
-              snaps.add(snap as DocumentSnapshot<Map<String, dynamic>>);
+              snaps.add(snap);
             }
             for (final snap in snaps) {
               if (!snap.exists) continue;
@@ -702,6 +871,9 @@ class OfflineSyncService {
               txn.delete(snap.reference);
             }
           });
+          for (final wid in transferWorkerIds) {
+            await _reconcileBalanceDebt(wid);
+          }
           break;
         }
       case 'auditLog':
@@ -715,9 +887,9 @@ class OfflineSyncService {
     }
   }
 
-  /// Best-effort post-commit notifications for a synced createTransaction.
-  /// Never throws - notification failures must not fail the (already
-  /// committed) sync operation.
+  
+  
+  
   void _fireTransactionNotifications({
     required String workerId,
     required String txType,
@@ -759,6 +931,7 @@ class OfflineSyncService {
               title: 'Money Received',
               body: 'You received ETB ${amount.toStringAsFixed(0)} from Admin',
               type: 'moneyDistributed',
+              data: {'workerId': workerId},
             );
             break;
           case 'purchase':
@@ -776,6 +949,7 @@ class OfflineSyncService {
                 body:
                     'Your balance is low (ETB ${newBalance.toStringAsFixed(0)}).',
                 type: 'lowBalance',
+                data: {'workerId': workerId},
               );
             }
             if ((commissionAmount ?? 0) > 0) {
@@ -789,8 +963,9 @@ class OfflineSyncService {
                 targetUserId: workerUserId,
                 title: 'Commission Earned!',
                 body:
-                    'You earned ETB ${commissionAmount!.toStringAsFixed(0)} commission.',
+                    'You earned ETB ${commissionAmount.toStringAsFixed(0)} commission.',
                 type: 'commissionEarned',
+                data: {'workerId': workerId},
               );
             }
             await NotificationTriggerService().checkLargePurchase(
@@ -807,6 +982,7 @@ class OfflineSyncService {
                 body:
                     'Purchased ETB ${amount.toStringAsFixed(0)}${coffeeType != null ? " ($coffeeType)" : ""}',
                 type: 'purchaseRecorded',
+                data: {'workerId': workerId},
               );
             }
             break;
@@ -817,44 +993,23 @@ class OfflineSyncService {
     }());
   }
 
-  static final http.Client _relayHttpClient = http.Client();
-
-  /// Best-effort push through the Cloudflare relay (free FCM path, no
-  /// Google billing). Silent no-op when the relay isn't configured.
-  /// Prefers Firestore-sourced config; falls back to dart-define.
+  
+  
+  
   Future<void> _pushViaRelay({
     required String targetUserId,
     required String title,
     required String body,
     required String type,
+    Map<String, String>? data,
   }) async {
-    try {
-      await RelayConfig.ensureInitialized(firestore: firestore);
-    } catch (_) {}
-    if (!RelayConfig.isConfigured) {
-      debugPrint('[Relay] SKIPPED - not configured. '
-          'Set settings/app relayUrl/relaySecret or build with --dart-define=RELAY_URL=... --dart-define=RELAY_SECRET=...');
-      return;
-    }
-    try {
-      final res = await _relayHttpClient.post(
-        Uri.parse(RelayConfig.relayUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Relay-Secret': RelayConfig.relaySecret,
-        },
-        body: jsonEncode({
-          'targetUserId': targetUserId,
-          'title': title,
-          'body': body,
-          'type': type,
-        }),
-      );
-      debugPrint(
-          '[Relay] $type -> $targetUserId: ${res.statusCode} ${res.body}');
-    } catch (e) {
-      debugPrint('[Relay] push failed: $e');
-    }
+    await PushRelayService(firestore: firestore).sendPush(
+      targetUserId: targetUserId,
+      title: title,
+      body: body,
+      type: type,
+      data: data,
+    );
   }
 
   int getPendingOperationsCount() {

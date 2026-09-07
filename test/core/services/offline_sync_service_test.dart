@@ -55,6 +55,43 @@ void main() {
     });
   }
 
+  test('markDebtPaid drain notifies repayment', () async {
+    await fake.collection('users').doc('admin1').set({'role': 'admin'});
+    await fake.collection('debts').doc('d1').set({
+      'collectorId': 'c1',
+      'collectorName': 'C1',
+      'source': 'purchase',
+      'purchaseId': 'p1',
+      'totalAmount': 1000.0,
+      'coveredAmount': 400.0,
+      'forgivenAmount': 600.0,
+      'status': 'open',
+      'createdAt': DateTime(2026, 8, 1).millisecondsSinceEpoch,
+      'createdBy': 'u1',
+    });
+    await OfflineCacheService().queueOperation({
+      'opId': 'op-paid-d1',
+      'type': 'markDebtPaid',
+      'docId': 'd1',
+      'payload': {
+        'status': 'paid',
+        'paidAt': DateTime.now().millisecondsSinceEpoch,
+      },
+      'queuedAt': DateTime.now().toIso8601String(),
+      'attempts': 0,
+    });
+
+    await OfflineSyncService().syncPendingOperations();
+
+    final doc = await fake.collection('debts').doc('d1').get();
+    expect(doc.data()?['status'], 'paid');
+    final notes = await fake.collection('notifications').get();
+    expect(
+        notes.docs
+            .any((d) => d.data()['type'] == 'debtRecorded'),
+        isTrue);
+  });
+
   test('replays approveTransaction op', () async {
     await seedTx('t1', approved: false);
     await OfflineCacheService().queueOperation({
