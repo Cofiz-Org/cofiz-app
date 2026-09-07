@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/cloudinary_config.dart';
 import '../models/debt_model.dart';
+import '../models/notification_model.dart';
 import '../models/transaction_model.dart';
 import '../utils/receipt_image_utils.dart';
 import '../utils/transaction_balance.dart' as tb;
@@ -926,13 +927,6 @@ class OfflineSyncService {
               amount: amount,
               adminName: null,
             );
-            await _pushViaRelay(
-              targetUserId: workerUserId,
-              title: 'Money Received',
-              body: 'You received ETB ${amount.toStringAsFixed(0)} from Admin',
-              type: 'moneyDistributed',
-              data: {'workerId': workerId},
-            );
             break;
           case 'purchase':
             await NotificationTriggerService().checkLowBalance(
@@ -950,6 +944,7 @@ class OfflineSyncService {
                     'Your balance is low (ETB ${newBalance.toStringAsFixed(0)}).',
                 type: 'lowBalance',
                 data: {'workerId': workerId},
+                noteType: NotificationType.lowBalance,
               );
             }
             if ((commissionAmount ?? 0) > 0) {
@@ -958,14 +953,6 @@ class OfflineSyncService {
                 workerName: workerName,
                 commission: commissionAmount!,
                 totalCommission: totalCommission,
-              );
-              await _pushViaRelay(
-                targetUserId: workerUserId,
-                title: 'Commission Earned!',
-                body:
-                    'You earned ETB ${commissionAmount.toStringAsFixed(0)} commission.',
-                type: 'commissionEarned',
-                data: {'workerId': workerId},
               );
             }
             await NotificationTriggerService().checkLargePurchase(
@@ -983,6 +970,7 @@ class OfflineSyncService {
                     'Purchased ETB ${amount.toStringAsFixed(0)}${coffeeType != null ? " ($coffeeType)" : ""}',
                 type: 'purchaseRecorded',
                 data: {'workerId': workerId},
+                noteType: NotificationType.purchaseRecorded,
               );
             }
             break;
@@ -1002,6 +990,7 @@ class OfflineSyncService {
     required String body,
     required String type,
     Map<String, String>? data,
+    required NotificationType noteType,
   }) async {
     await PushRelayService(firestore: firestore).sendPush(
       targetUserId: targetUserId,
@@ -1010,6 +999,17 @@ class OfflineSyncService {
       type: type,
       data: data,
     );
+    try {
+      await firestore.collection('notifications').add({
+        'targetUserId': targetUserId,
+        'title': title,
+        'body': body,
+        'type': noteType.name,
+        'isRead': false,
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'senderName': 'System',
+      });
+    } catch (_) {}
   }
 
   int getPendingOperationsCount() {
