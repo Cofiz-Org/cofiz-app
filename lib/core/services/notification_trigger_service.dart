@@ -1,19 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../models/debt_model.dart';
 import '../models/notification_model.dart';
+import 'push_relay_service.dart';
 
-/// Service for triggering automated notifications based on app events
+
 class NotificationTriggerService {
   final FirebaseFirestore _firestore;
+  final PushRelayService? _pushRelayOverride;
+  late final PushRelayService _pushRelay =
+      _pushRelayOverride ?? PushRelayService.shared;
 
-  NotificationTriggerService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  NotificationTriggerService(
+      {FirebaseFirestore? firestore, PushRelayService? pushRelay})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _pushRelayOverride = pushRelay;
 
-  // Thresholds for notifications
+  
   static const double lowBalanceThreshold = 500.0;
   static const double largePurchaseThreshold = 10000.0;
 
-  /// Send notification to a specific user
+  
   Future<void> _sendNotification({
     required String targetUserId,
     required String title,
@@ -41,15 +48,22 @@ class NotificationTriggerService {
         title: title,
         body: body,
       );
+      await _pushRelay.sendPush(
+        targetUserId: targetUserId,
+        title: title,
+        body: body,
+        type: type.name,
+        data: metadata?.map((k, v) => MapEntry(k, v.toString())),
+      );
     } catch (e) {
       debugPrint('Error sending notification: $e');
     }
   }
 
-  /// Queue an email for the target user via the Trigger Email extension,
-  /// but only when the user has verified their address AND opted in to
-  /// email notifications (users/{uid}.emailNotificationsEnabled, synced
-  /// from SettingsProvider). Push delivery is unaffected.
+  
+  
+  
+  
   Future<void> _maybeQueueEmail({
     required String targetUserId,
     required String title,
@@ -81,7 +95,7 @@ class NotificationTriggerService {
     }
   }
 
-  /// Notify worker when money is distributed to them
+  
   Future<void> notifyMoneyDistributed({
     required String workerId,
     required String workerUserId,
@@ -103,21 +117,21 @@ class NotificationTriggerService {
     );
   }
 
-  /// Check and notify admins if worker balance drops below threshold after
-  /// a purchase. Admin echo removed — bells are ping-only (collector/viewer
-  /// → admin via PingService). Kept as no-op for backward compat.
+  
+  
+  
   Future<void> checkLowBalance({
     required String workerId,
     required String workerUserId,
     required String workerName,
     required double newBalance,
   }) async {
-    // no-op: admin echo removed — bells are ping-only.
-    // Intentionally does not create notifications or mail.
+    
+    
     return;
   }
 
-  /// Notify worker when they earn commission
+  
   Future<void> notifyCommissionEarned({
     required String workerUserId,
     required String workerName,
@@ -137,7 +151,7 @@ class NotificationTriggerService {
     );
   }
 
-  /// Notify admins about a large purchase. Admin echo removed — ping-only.
+  
   Future<void> checkLargePurchase({
     required String workerId,
     required String workerName,
@@ -145,11 +159,11 @@ class NotificationTriggerService {
     String? coffeeType,
     double? weight,
   }) async {
-    // no-op: admin echo removed — bells are ping-only.
+    
     return;
   }
 
-  /// Notify all admin users
+  
   Future<void> _notifyAllAdmins({
     required String title,
     required String body,
@@ -157,7 +171,7 @@ class NotificationTriggerService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      // Get all admin users
+      
       final adminSnapshot = await _firestore
           .collection('users')
           .where('role', isEqualTo: 'admin')
@@ -178,27 +192,111 @@ class NotificationTriggerService {
     }
   }
 
+  Future<String?> _collectorUserId(String collectorId) async {
+    if (collectorId.isEmpty || collectorId == Debt.companyCollectorId) {
+      return null;
+    }
+    try {
+      final doc =
+          await _firestore.collection('workers').doc(collectorId).get();
+      final userId = doc.data()?['userId'];
+      if (userId is String && userId.isNotEmpty) return userId;
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _notifyCollector({
+    required String collectorId,
+    required String collectorName,
+    required String title,
+    required String body,
+    required NotificationType type,
+    required Map<String, dynamic> metadata,
+  }) async {
+    final userId = await _collectorUserId(collectorId);
+    if (userId == null) return;
+    await _sendNotification(
+      targetUserId: userId,
+      title: title,
+      body: body,
+      type: type,
+      senderName: 'System',
+      metadata: metadata,
+    );
+  }
+
   Future<void> notifyDebtRecorded({
     required String collectorId,
     required String collectorName,
     required double forgivenAmount,
     required double totalAmount,
+    String? linkedName,
+    String source = 'purchase',
+    String creditorName = '',
   }) async {
+    final hasLink = linkedName != null && linkedName.isNotEmpty;
+    final kind = source == 'expense' && hasLink ? linkedName : source;
+    final forSuffix =
+        source != 'expense' && hasLink ? ' For $linkedName.' : '';
+    final creditor = creditorName.isNotEmpty
+        ? creditorName
+        : (source == 'purchase' ? collectorName : 'Admin');
+    final adminBody =
+        'You owe $creditor: ETB ${forgivenAmount.toStringAsFixed(0)} recorded ($kind ETB ${totalAmount.toStringAsFixed(0)}).$forSuffix';
+    final viewerBody =
+        'You owe $creditor: ETB ${forgivenAmount.toStringAsFixed(0)} recorded.';
     await _notifyAllAdmins(
       title: 'Debt recorded',
-      body: 'Collector $collectorName: ETB ${forgivenAmount.toStringAsFixed(0)} added to debt (purchase ETB ${totalAmount.toStringAsFixed(0)}).',
+      body: adminBody,
       type: NotificationType.debtRecorded,
-      metadata: {'collectorId': collectorId, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
     );
     await _notifyAllViewers(
       title: 'Debt recorded',
-      body: 'Collector $collectorName: ETB ${forgivenAmount.toStringAsFixed(0)} added to debt.',
+      body: viewerBody,
       type: NotificationType.debtRecorded,
-      metadata: {'collectorId': collectorId, 'forgivenAmount': forgivenAmount},
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount},
+    );
+    await _notifyCollector(
+      collectorId: collectorId,
+      collectorName: collectorName,
+      title: 'Debt recorded',
+      body: viewerBody,
+      type: NotificationType.debtRecorded,
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
     );
   }
 
-  /// Notify all viewers (read-only users)
+  
+  Future<void> notifyDebtRepaid({
+    required String collectorId,
+    required String collectorName,
+    required double amount,
+  }) async {
+    final body =
+        '$collectorName cleared their balance (ETB ${amount.toStringAsFixed(0)} repaid).';
+    await _notifyAllAdmins(
+      title: 'Debt repaid',
+      body: body,
+      type: NotificationType.debtRecorded,
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
+    );
+    await _notifyAllViewers(
+      title: 'Debt repaid',
+      body: body,
+      type: NotificationType.debtRecorded,
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
+    );
+    await _notifyCollector(
+      collectorId: collectorId,
+      collectorName: collectorName,
+      title: 'Debt repaid',
+      body: body,
+      type: NotificationType.debtRecorded,
+      metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
+    );
+  }
+
   Future<void> _notifyAllViewers({
     required String title,
     required String body,
