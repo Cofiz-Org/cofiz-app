@@ -1,16 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class RelayConfig {
-  // Compile-time fallback (dart-define) — kept for backward compat.
-  static const String _envRelayUrl = String.fromEnvironment('RELAY_URL');
-  static const String _envRelaySecret = String.fromEnvironment('RELAY_SECRET');
-  static const String _envTelegramBotId = String.fromEnvironment('TELEGRAM_BOT_ID');
+  static String _readEnv(String key) =>
+      dotenv.isInitialized ? dotenv.env[key] ?? '' : '';
+  static String get _envRelayUrl => _readEnv('RELAY_URL');
+  static String get _envRelaySecret => _readEnv('RELAY_SECRET');
+  static String get _envTelegramBotId => _readEnv('TELEGRAM_BOT_ID');
 
-  // Hardcoded fallback — URL and bot ID only. The relay SECRET must never
-  // be baked into source: it loads at runtime from Firestore settings/app,
-  // or from --dart-define=RELAY_SECRET for sideloaded/dev builds.
-  // Keep the Firestore value in sync with the worker RELAY_SECRET.
   static const String _fallbackRelayUrl = 'https://cofiz.natanim.dev';
   static const String _fallbackRelaySecret = '';
   static const String _fallbackTelegramBotId = '8777989279';
@@ -20,17 +18,12 @@ class RelayConfig {
   static String _telegramBotId = _envTelegramBotId.isNotEmpty ? _envTelegramBotId : _fallbackTelegramBotId;
   static bool _initialized = false;
 
-  /// Synchronous accessors — reflect the latest cached value.
-  /// Prefer ensuring [init] has been awaited at app startup.
   static String get relayUrl => _relayUrl;
   static String get relaySecret => _relaySecret;
   static String get telegramBotId => _telegramBotId;
 
   static bool get isConfigured => relayUrl.isNotEmpty && relaySecret.isNotEmpty;
 
-  /// Fetches relayUrl/relaySecret from Firestore `settings/app` at runtime.
-  /// Falls back to dart-define values if Firestore is unavailable or fields
-  /// are absent. Idempotent — subsequent calls are no-ops unless [force] is true.
   static Future<void> init({
     FirebaseFirestore? firestore,
     bool force = false,
@@ -65,7 +58,6 @@ class RelayConfig {
     _initialized = true;
   }
 
-  /// Ensures [init] has run once; call before relying on Firestore-sourced values.
   static Future<void> ensureInitialized({FirebaseFirestore? firestore}) async {
     if (!_initialized) await init(firestore: firestore);
   }

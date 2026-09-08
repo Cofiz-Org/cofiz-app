@@ -5,6 +5,7 @@ import 'core/models/user_model.dart';
 import 'core/config/relay_config.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'core/services/fcm_service.dart';
 import 'core/providers/auth_provider.dart';
@@ -49,21 +50,19 @@ import 'presentation/screens/worker_list/worker_list_screen.dart';
 import 'presentation/screens/worker/worker_dashboard_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-/// Bottom-nav taps between adjacent tabs slide smoothly; taps that skip over
-/// a tab jump directly instead of scrolling across the intermediate pages
-/// (which are built lazily and cause the janky, sticky feel).
 bool shouldAnimateTabSwitch(int from, int to) => (to - from).abs() == 1;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  debugPrint('[main] initializing Firebase...');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    // Firebase already initialized, continue
     if (!e.toString().contains('duplicate-app')) {
       rethrow;
     }
@@ -74,16 +73,13 @@ void main() async {
   await RelayConfig.init();
   debugPrint('[main] RelayConfig ready');
 
-  // Register the FCM background handler early (cheap, local).
   FCMService().setup();
 
-  // Fast, local-only initialization required before the first frame.
   final notificationService = NotificationService();
   debugPrint('[main] initializing NotificationService...');
   await notificationService.initialize();
   debugPrint('[main] NotificationService ready');
 
-  // Initialize local caches (Hive) so the UI can read cached data immediately.
   final offlineSyncService = OfflineSyncService();
   debugPrint('[main] initializing OfflineSyncService...');
   await offlineSyncService.initialize();
@@ -96,10 +92,6 @@ void main() async {
   ));
   debugPrint('[main] first frame scheduled; network services deferred');
 
-  // Network-dependent initialization is deferred until after the first
-  // frame so a slow connection doesn't hold up app startup. All calls run
-  // in parallel. RelayConfig is initialized here so Firestore-sourced
-  // relayUrl/relaySecret are available without --dart-define.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _initializeNetworkServices();
   });
@@ -216,7 +208,6 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
             builder: (context, child) {
               final mq = MediaQuery.of(context);
               final systemScale = mq.textScaler.scale(14) / 14;
-              // Idle detection: Listener catches pointer, NotificationListener catches scroll
               return ColoredBox(
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: AppToastHost(
@@ -254,7 +245,6 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
   }
 }
 
-/// Auth gate to check if user is logged in
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -280,7 +270,6 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     return Consumer3<AuthProvider, LockStateProvider, PhoneOtpAuthProvider>(
       builder: (context, authProvider, lockState, otpProvider, _) {
-        // Re-initialize lock state when uid changes (per-user PIN).
         if (authProvider.isAuthenticated && authProvider.user != null) {
           final uid = authProvider.user!.uid;
           if (_lastInitUid != uid) {
@@ -322,9 +311,6 @@ class _AuthGateState extends State<AuthGate> {
           return const CreatePinScreen();
         }
 
-        // While the per-user lock state is still loading, never paint the
-        // dashboard underneath — show a holding frame with the exact same
-        // background as PinLockScreen so the transition is seamless.
         if (authProvider.isAuthenticated && !lockState.isInitialized) {
           final theme = Theme.of(context);
           return Scaffold(
@@ -346,8 +332,6 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        // Render the lock inline instead of as a pushed overlay route so the
-        // dashboard is never visible for a frame behind it (the flash).
         if (authProvider.isAuthenticated &&
             lockState.state == PinLockState.locked) {
           return const PopScope(
@@ -357,8 +341,6 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         final Widget content = (() {
-
-        // Navigate based on auth status AND user role
         if (authProvider.isAuthenticated) {
           if (authProvider.userRole == null) {
             if (authProvider.status == AuthStatus.loading) {
@@ -434,12 +416,9 @@ class _AuthGateState extends State<AuthGate> {
           }
         }
 
-        // Not authenticated - show login
         return const PhoneLoginScreen();
         })();
 
-        // Fade between lock / holding / dashboard so unlock and post-login
-        // transitions are smooth instead of a hard cut / flicker.
         final String switchKey;
         if (authProvider.isAuthenticated &&
             lockState.state == PinLockState.locked) {
@@ -541,7 +520,6 @@ class _MainLayoutState extends State<MainLayout> {
               children: _screens,
             ),
 
-            // Fixed Bottom Nav
             Positioned(
               left: 0,
               right: 0,

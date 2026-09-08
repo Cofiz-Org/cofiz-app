@@ -1,20 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Which GitHub repo hosts the releases. Override at build time with
-/// `--dart-define=UPDATE_REPO=owner/name` without touching code.
-const String kUpdateRepo = String.fromEnvironment(
-  'UPDATE_REPO',
-  defaultValue: 'cofiz-org/cofiz-dist',
-);
+String get defaultUpdateRepo {
+  final fromEnv =
+      dotenv.isInitialized ? dotenv.env['UPDATE_REPO'] ?? '' : '';
+  return fromEnv.isNotEmpty ? fromEnv : 'cofiz-org/cofiz-dist';
+}
 
 const String _kApiBase = 'https://api.github.com';
 const Duration _kCheckInterval = Duration(hours: 24);
 
-/// A GitHub release worth updating to, cached as JSON in SharedPreferences.
 class ReleaseInfo {
   final String version;
   final String tag;
@@ -63,9 +62,6 @@ class ReleaseInfo {
   }
 }
 
-/// Compares dotted version strings: returns <0, 0, >0.
-/// Leading `v`, build metadata (`+123`) and pre-release suffixes (`-beta`)
-/// are stripped; missing segments count as zero (`1.2` == `1.2.0`).
 int compareVersions(String a, String b) {
   List<int> parts(String v) {
     var s = v.trim();
@@ -85,8 +81,6 @@ int compareVersions(String a, String b) {
   return 0;
 }
 
-/// Checks GitHub Releases for a newer build. Pure Dart except for the
-/// injected [http.Client] and [SharedPreferences], so it is unit-testable.
 class UpdateService {
   final http.Client _client;
   final SharedPreferences _prefs;
@@ -99,17 +93,14 @@ class UpdateService {
   UpdateService({
     required SharedPreferences prefs,
     http.Client? client,
-    this.repo = kUpdateRepo,
+    String? repo,
   })  : _prefs = prefs,
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        repo = repo ?? defaultUpdateRepo;
 
   Uri get _latestReleaseUrl =>
       Uri.parse('$_kApiBase/repos/$repo/releases/latest');
 
-  /// Returns a [ReleaseInfo] when [currentVersion] is older than the latest
-  /// GitHub release, else null. Background failures (offline, rate-limit,
-  /// malformed payload) return null silently; the caller decides whether a
-  /// user-initiated check should surface an error via [lastError].
   String? lastError;
 
   Future<ReleaseInfo?> checkForUpdates({
@@ -146,7 +137,6 @@ class UpdateService {
     return _newerThanCurrent(release ?? _cachedRelease(), currentVersion);
   }
 
-  /// Streams the APK to [destPath], reporting 0.0–1.0 progress.
   Future<void> downloadApk({
     required String url,
     required String destPath,
@@ -219,8 +209,6 @@ class UpdateService {
     return release;
   }
 
-  /// The `/releases/latest` endpoint already skips drafts and prereleases,
-  /// but guard anyway so a flag flip upstream can't push a beta.
   ReleaseInfo? _parseRelease(Map<String, dynamic> json) {
     try {
       if (json['draft'] == true || json['prerelease'] == true) return null;
