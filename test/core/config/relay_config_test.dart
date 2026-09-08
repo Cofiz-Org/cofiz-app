@@ -12,13 +12,17 @@ void main() {
       RelayConfig.resetForTest();
     });
 
-    test('dart-define fallback when Firestore missing', () async {
+    test('no secret baked in: unconfigured without Firestore/dart-define',
+        () async {
       final fake = FakeFirebaseFirestore();
-      // No settings/app doc — keeps compiled-in fallback relay
+      // No settings/app doc and no dart-define — URL fallback stands but the
+      // secret must NOT come from source. Push features must treat relay as
+      // unconfigured rather than using a compiled-in credential.
       await RelayConfig.init(firestore: fake);
       expect(RelayConfig.isInitialized, isTrue);
       expect(RelayConfig.relayUrl, 'https://cofiz.natanim.dev');
-      expect(RelayConfig.isConfigured, isTrue);
+      expect(RelayConfig.relaySecret, isEmpty);
+      expect(RelayConfig.isConfigured, isFalse);
     });
 
     test('loads relayUrl/relaySecret from Firestore settings/app', () async {
