@@ -27,7 +27,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeBack => 'Welcome Back,';
 
   @override
-  String get changeLanguage => 'Change Language';
+  String get changeLanguage => 'Language';
 
   @override
   String get selectLanguage => 'Select Language';
@@ -267,10 +267,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recentTransactions => 'Recent Transactions';
 
   @override
-  String get jenfel => 'Jenfel';
+  String get jenfel => 'Dried';
 
   @override
-  String get yetatebe => 'Yetatebe';
+  String get yetatebe => 'Washed';
 
   @override
   String get special => 'Special';
@@ -713,6 +713,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailAddress => 'Email Address';
 
   @override
+  String get enterYourEmail => 'Enter your email';
+
+  @override
+  String get pleaseEnterValidEmail => 'Please enter a valid email address';
+
+  @override
   String get emailCannotBeChanged => 'Email cannot be changed';
 
   @override
@@ -750,6 +756,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get codeSendFailed => 'Could not send code. Try again.';
+
+  @override
+  String get networkError =>
+      'No internet connection. Check your connection and try again.';
+
+  @override
+  String get serverError => 'Server error. Please try again later.';
 
   @override
   String get invalidCode => 'Invalid code. Try again.';
@@ -1261,6 +1274,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kg => 'Kg';
 
   @override
+  String get ton => 'Ton';
+
+  @override
   String get pingMessageHint => 'e.g. Please submit your daily report';
 
   @override
@@ -1301,6 +1317,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addCategory => 'Add Category';
 
   @override
+  String get categoryAdded => 'Category added';
+
+  @override
+  String get categoryAddFailed =>
+      'Could not add category. Check your connection and try again.';
+
+  @override
   String get addExpense => 'Add Expense';
 
   @override
@@ -1329,7 +1352,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expenseRecords => 'Expense Records';
 
   @override
-  String get expenses => 'Expenses';
+  String get expenses => 'Expense';
 
   @override
   String get incomeBreakdown => 'Income Breakdown';
@@ -1575,4 +1598,209 @@ class AppLocalizationsEn extends AppLocalizations {
   String cooldownWait(Object seconds) {
     return 'Wait ${seconds}s before retry';
   }
+
+  @override
+  String get calendarType => 'Calendar';
+
+  @override
+  String get gregorian => 'Gregorian';
+
+  @override
+  String get ethiopian => 'Ethiopian';
+
+  @override
+  String get debts => 'Debts';
+
+  @override
+  String get debtLabel => 'Debt';
+
+  @override
+  String get totalOpenDebt => 'Total open debt';
+
+  @override
+  String get debtRecords => 'Debt records';
+
+  @override
+  String get noOpenDebts => 'No open debts.';
+
+  @override
+  String get markAsPaid => 'Mark as paid?';
+
+  @override
+  String confirmDebtPaid(Object name, Object amount) {
+    return 'Collector $name paid ETB $amount?';
+  }
+
+  @override
+  String get paid => 'Paid';
+
+  @override
+  String get noDebtsRecorded => 'No debts recorded.';
+
+  @override
+  String get debtsWillAppear =>
+      'Debts will appear here when a purchase exceeds balance.';
+
+  @override
+  String get failedToMarkPaid => 'Failed to mark as paid';
+
+  @override
+  String get recordAsDebt => 'Record as debt';
+
+  @override
+  String recordDebtSubtitle(Object bal, Object over) {
+    return 'Collector has ETB $bal; remaining ETB $over will be recorded as debt.';
+  }
+
+  @override
+  String get recordExcessAsDebt => 'Record excess as debt';
+
+  @override
+  String recordExcessSubtitle(Object avail, Object over) {
+    return 'Available cash ETB $avail; excess ETB $over will be recorded as debt.';
+  }
+
+  @override
+  String insufficientCompanyCash(Object avail) {
+    return 'Insufficient company cash. Toggle \"Record excess as debt\" to proceed. Available: ETB $avail';
+  }
+
+  @override
+  String insufficientBalanceDebt(Object bal) {
+    return 'Insufficient balance. Toggle \"Record as debt\" to record the overage separately. Available: ETB $bal';
+  }
+
+  @override
+  String youOwe(Object name) {
+    return 'You owe $name';
+  }
+
+  @override
+  String tiedTo(Object source) {
+    return 'Tied to $source';
+  }
+
+  @override
+  String get debtAmount => 'Debt amount';
+
+  @override
+  String get debtExceedsTotal => 'Debt amount cannot exceed the total amount';
+
+  @override
+  String debtBelowShortfall(Object short) {
+    return 'Debt must cover at least the shortfall of ETB $short';
+  }
+
+  @override
+  String get forgiven => 'Forgiven';
+
+  @override
+  String get reminders => 'Reminders';
+
+  @override
+  String get nightlyReminder => 'Nightly reminder';
+
+  @override
+  String get nightlyReminderSubtitle => 'Notify if no record today';
+
+  @override
+  String get reminderTime => 'Reminder time';
+
+  @override
+  String get displaySize => 'Display Size';
+
+  @override
+  String get pingAdmin => 'Ping Admin';
+
+  @override
+  String get registrationSubmitted =>
+      'Registration submitted. Waiting for approval.';
+
+  @override
+  String get submitRegistration => 'Submit Registration';
+
+  @override
+  String get requiredToReceive => 'Required to receive email notifications';
+
+  @override
+  String get enterCurrentPin => 'Enter current PIN';
+
+  @override
+  String get investor => 'Investor';
+
+  @override
+  String get fullAccess => 'Full access';
+
+  @override
+  String get readOnly => 'Read only';
+
+  @override
+  String get writeMessage => 'Write your message...';
+
+  @override
+  String get toggleTodayTotal => 'Toggle Today / Total';
+
+  @override
+  String get requiresCurrentPin => 'Requires current PIN';
+
+  @override
+  String get phoneExample => 'Phone (e.g. 0911234567)';
+
+  @override
+  String get appUpdate => 'App update';
+
+  @override
+  String get checkingForUpdates => 'Checking for updates...';
+
+  @override
+  String get upToDateShort => 'You\'re on the latest version';
+
+  @override
+  String get checkAgain => 'Check again';
+
+  @override
+  String get updateAvailable => 'Update available';
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get updateAction => 'Update';
+
+  @override
+  String get installNow => 'Install';
+
+  @override
+  String get downloadingUpdate => 'Downloading update...';
+
+  @override
+  String get readyToInstall => 'Download complete — tap to install';
+
+  @override
+  String get updateCheckFailed => 'Couldn\'t check for updates';
+
+  @override
+  String get downloadFailed => 'Download failed — try again';
+
+  @override
+  String get whatsNew => 'What\'s new';
+
+  @override
+  String latestVersion(Object version) {
+    return 'Latest: $version';
+  }
+
+  @override
+  String get updatePushedTitle => 'New Cofiz update';
+
+  @override
+  String updatePushedBody(Object version) {
+    return 'Version $version is ready to install';
+  }
+
+  @override
+  String get showMore => 'Show more';
+
+  @override
+  String get showLess => 'Show less';
 }

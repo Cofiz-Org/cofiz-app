@@ -27,7 +27,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get welcomeBack => 'እንኳን ደህና መጡ፣';
 
   @override
-  String get changeLanguage => 'ቋንቋ ቀይር';
+  String get changeLanguage => 'ቋንቋ';
 
   @override
   String get selectLanguage => 'ቋንቋ ይምረጡ';
@@ -267,13 +267,13 @@ class AppLocalizationsAm extends AppLocalizations {
   String get recentTransactions => 'የቅርብ ጊዜ ግብይቶች';
 
   @override
-  String get jenfel => 'ጅንፈል';
+  String get jenfel => 'ጃንፈል';
 
   @override
-  String get yetatebe => 'የጣጠበ';
+  String get yetatebe => 'የታጠበ';
 
   @override
-  String get special => 'ልዩ';
+  String get special => 'ስፔሻል';
 
   @override
   String get coffeeType => 'የቡና ዓይነት';
@@ -402,7 +402,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get purchased => 'የተገዛ';
 
   @override
-  String get purchasesByType => 'በዓይነት የተደረገ የቡና ግዢ';
+  String get purchasesByType => 'ቡና ግዢ በአይነት';
 
   @override
   String get quickNotes => 'ፈጣን ማስታወሻዎች';
@@ -432,7 +432,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get login => 'ግባ';
 
   @override
-  String get forgotPassword => 'የይለፍ ቃል ረሱ?';
+  String get forgotPassword => 'የይለፍ ቃል ረስተዋል?';
 
   @override
   String get rememberMe => 'አስታውሰኝ';
@@ -709,6 +709,12 @@ class AppLocalizationsAm extends AppLocalizations {
   String get emailAddress => 'ኢሜይል አድራሻ';
 
   @override
+  String get enterYourEmail => 'ኢሜይልዎን ያስገቡ';
+
+  @override
+  String get pleaseEnterValidEmail => 'እባክዎ ትክክለኛ የኢሜይል አድራሻ ያስገቡ';
+
+  @override
   String get emailCannotBeChanged => 'ኢሜይል መቀየር አይቻልም';
 
   @override
@@ -746,6 +752,12 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get codeSendFailed => 'ኮድ መላክ አልተቻለም። እንደገና ይሞክሩ';
+
+  @override
+  String get networkError => 'የኢንተርኔት ግንኙነት የለም። ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።';
+
+  @override
+  String get serverError => 'የሰርቨር ስህተት። እባክዎ ቆይተው እንደገና ይሞክሩ።';
 
   @override
   String get invalidCode => 'የተሳሳተ ኮድ። እንደገና ይሞክሩ';
@@ -1251,6 +1263,9 @@ class AppLocalizationsAm extends AppLocalizations {
   String get kg => 'ኪሎ';
 
   @override
+  String get ton => 'ቶን';
+
+  @override
   String get pingMessageHint => 'ለምሳሌ፡ እባክዎ ዕለታዊ ሪፖርትዎን ያስገቡ';
 
   @override
@@ -1291,6 +1306,13 @@ class AppLocalizationsAm extends AppLocalizations {
   String get addCategory => 'ምድብ ጨምር';
 
   @override
+  String get categoryAdded => 'ምድብ ታክሏል';
+
+  @override
+  String get categoryAddFailed =>
+      'ምድብ መጨመር አልተቻለም። ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።';
+
+  @override
   String get addExpense => 'ወጪ ጨምር';
 
   @override
@@ -1318,7 +1340,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get expenseRecords => 'የወጪ መዝገቦች';
 
   @override
-  String get expenses => 'ወጪዎች';
+  String get expenses => 'ወጪ';
 
   @override
   String get incomeBreakdown => 'የገቢ ብልሽት';
@@ -1510,16 +1532,16 @@ class AppLocalizationsAm extends AppLocalizations {
   String get pinLockTitle => 'PIN ያስገቡ';
 
   @override
-  String get pinForgot => 'PIN ረስተዷል?';
+  String get pinForgot => 'PIN ረስተዋል?';
 
   @override
-  String get pinUseBiometric => 'የጣት አሻራ ይጠቀሙ';
+  String get pinUseBiometric => 'ጣት አሻራ ይጠቀሙ';
 
   @override
-  String get pinIncorrect => 'ትክክል አልሆነም';
+  String get pinIncorrect => 'ትክክል ያልሆነ PIN';
 
   @override
-  String get pinTooMany => 'በጣም ብዙ ሙከራዎች። እንደገና ይግቡ።';
+  String get pinTooMany => 'ብዙ ጊዜ ሞክረዋል። እንደገና ይግቡ።';
 
   @override
   String get pinWeak => 'PIN በጣም ደካማ ነው — ሌላ ያልተለመደ ኮድ ይምረጡ';
@@ -1562,4 +1584,207 @@ class AppLocalizationsAm extends AppLocalizations {
   String cooldownWait(Object seconds) {
     return 'እባክዎ $seconds ሰከንድ ይጠብቁ';
   }
+
+  @override
+  String get calendarType => 'የቀን መቁጠሪያ';
+
+  @override
+  String get gregorian => 'ግሬጎሪያን';
+
+  @override
+  String get ethiopian => 'ኢትዮጵያ';
+
+  @override
+  String get debts => 'ዕዳዎች';
+
+  @override
+  String get debtLabel => 'ዕዳ';
+
+  @override
+  String get totalOpenDebt => 'ጠቅላላ ክፍት ዕዳ';
+
+  @override
+  String get debtRecords => 'የዕዳ መዝገቦች';
+
+  @override
+  String get noOpenDebts => 'ክፍት ዕዳ የለም።';
+
+  @override
+  String get markAsPaid => 'እንደተከፈለ ምልክት ይደረግ?';
+
+  @override
+  String confirmDebtPaid(Object name, Object amount) {
+    return 'ሰብሳቢ $name ETB $amount ከፍሏል?';
+  }
+
+  @override
+  String get paid => 'የተከፈለ';
+
+  @override
+  String get noDebtsRecorded => 'ምንም ዕዳ አልተመዘገበም።';
+
+  @override
+  String get debtsWillAppear => 'ግዢ ከቀሪ ሂሳብ ሲበልጥ ዕዳዎች እዚህ ይታያሉ።';
+
+  @override
+  String get failedToMarkPaid => 'እንደተከፈለ ምልክት ማድረግ አልተሳካም';
+
+  @override
+  String get recordAsDebt => 'እንደ ዕዳ መዝገብ';
+
+  @override
+  String recordDebtSubtitle(Object bal, Object over) {
+    return 'ቀሪ ሂሳብ ETB $bal ነው፤ ልዩ ETB $over እንደ ዕዳ ይመዘገባል።';
+  }
+
+  @override
+  String get recordExcessAsDebt => 'ትርፉን እንደ ዕዳ መዝገብ';
+
+  @override
+  String recordExcessSubtitle(Object avail, Object over) {
+    return 'ያለ ጥሬ ገንዘብ ETB $avail ነው፤ ትርፍ ETB $over እንደ ዕዳ ይመዘገባል።';
+  }
+
+  @override
+  String insufficientCompanyCash(Object avail) {
+    return 'የኩባንያ ጥሬ ገንዘብ አልበቃም። ለመቀጠል «ትርፉን እንደ ዕዳ መዝገብ»ን ያብሩ። ያለ፡ ETB $avail';
+  }
+
+  @override
+  String insufficientBalanceDebt(Object bal) {
+    return 'ቀሪ ሂሳብ አልበቃም። ትርፉን ለየብቻ እንደ ዕዳ ለመመዝገብ «እንደ ዕዳ መዝገብ»ን ያብሩ። ያለ፡ ETB $bal';
+  }
+
+  @override
+  String youOwe(Object name) {
+    return 'ለ$name ዕዳ አለብዎት';
+  }
+
+  @override
+  String tiedTo(Object source) {
+    return 'ከ$source ጋር የተያያዘ';
+  }
+
+  @override
+  String get debtAmount => 'የዕዳ መጠን';
+
+  @override
+  String get debtExceedsTotal => 'የዕዳ መጠን ከጠቅላላ መጠኑ መብለጥ አይችልም';
+
+  @override
+  String debtBelowShortfall(Object short) {
+    return 'የዕዳ መጠኑ ቢያንስ ETB $short መሸፈን አለበት';
+  }
+
+  @override
+  String get forgiven => 'የተተወ';
+
+  @override
+  String get reminders => 'ማሳሰቢያዎች';
+
+  @override
+  String get nightlyReminder => 'ሌሊታዊ ማሳሰቢያ';
+
+  @override
+  String get nightlyReminderSubtitle => 'ዛሬ መዝገብ ከሌለ አሳውቅ';
+
+  @override
+  String get reminderTime => 'የማሳሰቢያ ሰዓት';
+
+  @override
+  String get displaySize => 'የማሳያ መጠን';
+
+  @override
+  String get pingAdmin => 'አድሚን አሳውቅ';
+
+  @override
+  String get registrationSubmitted => 'ምዝገባው ተልኳል። ማጽደቅ በመጠባበቅ ላይ ነው።';
+
+  @override
+  String get submitRegistration => 'ምዝገባ ላክ';
+
+  @override
+  String get requiredToReceive => 'የኢሜይል ማሳሰቢያዎችን ለመቀበል ያስፈልጋል';
+
+  @override
+  String get enterCurrentPin => 'የአሁኑን ፒን ያስገቡ';
+
+  @override
+  String get investor => 'ኢንቨስተር';
+
+  @override
+  String get fullAccess => 'ሙሉ መዳረሻ';
+
+  @override
+  String get readOnly => 'ለማንበብ ብቻ';
+
+  @override
+  String get writeMessage => 'መልእክትዎን ይጻፉ...';
+
+  @override
+  String get toggleTodayTotal => 'ዛሬ / ጠቅላላ ቀይር';
+
+  @override
+  String get requiresCurrentPin => 'የአሁኑን ፒን ይፈልጋል';
+
+  @override
+  String get phoneExample => 'ስልክ (ለምሳሌ 0911234567)';
+
+  @override
+  String get appUpdate => 'የመተግበሪያ ማሻሻያ';
+
+  @override
+  String get checkingForUpdates => 'ማሻሻያዎችን በመፈተሽ ላይ...';
+
+  @override
+  String get upToDateShort => 'በአዲሱ ስሪት ላይ ነዎት';
+
+  @override
+  String get checkAgain => 'እንደገና ፈትሽ';
+
+  @override
+  String get updateAvailable => 'አዲስ ማሻሻያ አለ';
+
+  @override
+  String get notNow => 'አሁን አይደለም';
+
+  @override
+  String get updateAction => 'አሻሽል';
+
+  @override
+  String get installNow => 'ጫን';
+
+  @override
+  String get downloadingUpdate => 'ማሻሻያውን በማውረድ ላይ...';
+
+  @override
+  String get readyToInstall => 'ውርደት ተጠናቋል — ለመጫን ንካ';
+
+  @override
+  String get updateCheckFailed => 'ማሻሻያዎችን መፈተሽ አልተሳካም';
+
+  @override
+  String get downloadFailed => 'ውርደት አልተሳካም — እንደገና ሞክር';
+
+  @override
+  String get whatsNew => 'ምን አዲስ ነገር አለ';
+
+  @override
+  String latestVersion(Object version) {
+    return 'አዲስ፡ $version';
+  }
+
+  @override
+  String get updatePushedTitle => 'አዲስ የCofiz ማሻሻያ';
+
+  @override
+  String updatePushedBody(Object version) {
+    return 'ስሪት $version ለመጫን ዝግጁ ነው';
+  }
+
+  @override
+  String get showMore => 'ተጨማሪ አሳይ';
+
+  @override
+  String get showLess => 'አሳንስ';
 }

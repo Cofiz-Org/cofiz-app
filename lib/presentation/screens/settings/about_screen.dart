@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/providers/update_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/background_pattern.dart';
 import '../../../l10n/app_localizations.dart';
@@ -7,10 +9,48 @@ import '../../../l10n/app_localizations.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  static const String _loremIpsum = """
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+  static const String _termsOfService = """
+Cofiz Terms of Service
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+1. What Cofiz does
+Cofiz helps businesses record purchases, distributions, expenses, income, and debts, and manage collectors and roles.
+
+2. Your account
+You sign in with your phone number via WhatsApp or Telegram one-time codes, or a 6-digit app PIN you set. Keep your device and PIN private. You are responsible for activity under your account.
+
+3. Your data
+Business records you enter belong to your business. An administrator of your workspace can view and manage workspace data, including your activity.
+
+4. Acceptable use
+Use Cofiz only for lawful business record-keeping. Do not misuse one-time codes, share PINs, or attempt to access other workspaces.
+
+5. Availability
+Cofiz works offline and syncs when a connection is available. Sync and push notifications require internet access and may be delayed.
+
+6. Changes and contact
+We may update these terms as the app evolves. Questions: contact support below.
+""";
+
+  static const String _privacyPolicy = """
+Cofiz Privacy Policy
+
+1. Data we store
+Account data (name, phone, role, company), business records (transactions, expenses, income, debts), app preferences, and device push tokens. Receipt photos you attach are stored for your records.
+
+2. How data is used
+To run the app: sign-in, record-keeping, reports, reminders, and notifications. One-time login codes are single-use and expire within minutes.
+
+3. Sharing
+Workspace admins can see workspace business data. We do not sell personal data. Login codes travel over WhatsApp/Telegram and push notifications over Google FCM, subject to their policies.
+
+4. Security
+Sessions use Firebase authentication; mismatched or expired sessions are signed out automatically. Repeated wrong PIN entries trigger cooldowns and, after 5 failures, sign-out.
+
+5. Retention and deletion
+Records persist while your workspace exists. Ask your administrator about correction or deletion of your data.
+
+6. Contact
+For privacy questions or requests, contact support below.
 """;
 
   void _showContentDialog(BuildContext context, String title, String content) {
@@ -34,8 +74,8 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   Future<void> _launchEmail() async {
     final Uri emailLaunchUri = Uri(
       scheme: 'mailto',
-      path: 'support@cofiz.com',
-      query: 'subject=App Support',
+      path: 'kemalnatanim@gmail.com',
+      query: 'subject=Cofiz Support',
     );
     try {
       if (await canLaunchUrl(emailLaunchUri)) {
@@ -87,10 +127,15 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  AppLocalizations.of(context)!.version('1.1.9'),
-                  style: TextStyle(
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                Consumer<UpdateProvider>(
+                  builder: (context, updater, _) => Text(
+                    AppLocalizations.of(context)!.version(
+                        updater.currentVersion.isNotEmpty
+                            ? updater.currentVersion
+                            : '…'),
+                    style: TextStyle(
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -104,7 +149,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                       context,
                       AppLocalizations.of(context)?.termsOfService ??
                           'Terms of Service',
-                      _loremIpsum),
+                      _termsOfService),
                 ),
                 _buildTile(
                   context,
@@ -115,14 +160,19 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                       context,
                       AppLocalizations.of(context)?.privacyPolicy ??
                           'Privacy Policy',
-                      _loremIpsum),
+                      _privacyPolicy),
                 ),
                 const SizedBox(height: 24),
                 _buildSection(context, AppLocalizations.of(context)!.support),
                 _buildTile(
                   context,
-                  AppLocalizations.of(context)?.contactSupport ??
-                      'Contact Support',
+                  'Telegram @phnatanim',
+                  Icons.send_outlined,
+                  () => _launchUrl('https://t.me/phnatanim'),
+                ),
+                _buildTile(
+                  context,
+                  'kemalnatanim@gmail.com',
                   Icons.email_outlined,
                   () => _launchEmail(),
                 ),
@@ -130,7 +180,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
                   context,
                   AppLocalizations.of(context)?.visitWebsite ?? 'Visit Website',
                   Icons.language,
-                  () => _launchUrl('https://example.com'),
+                  () => _launchUrl('https://cofiz.com'),
                 ),
                 const SizedBox(height: 40),
                 Text(
@@ -177,7 +227,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

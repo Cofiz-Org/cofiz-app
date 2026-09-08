@@ -1,20 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/phone_otp_auth_provider.dart';
 import '../../../core/providers/audit_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/providers/update_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/density_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/custom_header.dart';
+import '../../widgets/app_update_card.dart';
 import 'profile_edit_screen.dart';
 import 'notification_settings_screen.dart';
 import 'business_settings_screen.dart';
 import 'data_management_screen.dart';
 import 'about_screen.dart';
 import '../audit/audit_log_screen.dart';
-import '../../widgets/app_toast.dart';
+import '../../../core/utils/date_formatter.dart';
 import 'pin_lock_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -77,8 +82,10 @@ class SettingsScreen extends StatelessWidget {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
               children: [
+                const AppUpdateCard(),
+                const SizedBox(height: 24),
                 if (authProvider.isViewer) ...[
                   _buildSectionHeader(theme, localizations.business),
                   _buildSettingsTile(
@@ -131,12 +138,13 @@ class SettingsScreen extends StatelessWidget {
                 ),
 
                 if (isAdmin) ...[
-                  _buildSectionHeader(theme, 'Reminders'),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(theme, localizations.reminders),
                   _buildSettingsTile(
                     context,
                     icon: Icons.notifications_active_outlined,
-                    title: 'Nightly reminder',
-                    subtitle: 'Notify if no record today',
+                    title: localizations.nightlyReminder,
+                    subtitle: localizations.nightlyReminderSubtitle,
                     trailing: Switch(
                       value: settingsProvider.reminderEnabled,
                       onChanged: (val) async {
@@ -148,7 +156,7 @@ class SettingsScreen extends StatelessWidget {
                   _buildSettingsTile(
                     context,
                     icon: Icons.schedule,
-                    title: 'Reminder time',
+                    title: localizations.reminderTime,
                     subtitle: settingsProvider.adminReminderTime,
                     trailing: Icon(
                       Icons.access_time,
@@ -189,7 +197,6 @@ class SettingsScreen extends StatelessWidget {
                           }
                         : null,
                   ),
-                  const SizedBox(height: 24),
                 ],
 
                 const SizedBox(height: 24),
@@ -209,7 +216,7 @@ class SettingsScreen extends StatelessWidget {
                 _buildSettingsTile(
                   context,
                   icon: Icons.format_size_outlined,
-                  title: 'Display Size',
+                   title: localizations.displaySize,
                   subtitle: '${(densityProvider.scale * 100).round()}%',
                   onTap: () => _showDensityBottomSheet(context),
                 ),
@@ -222,15 +229,16 @@ class SettingsScreen extends StatelessWidget {
                       : 'English',
                   onTap: () => _showLanguageBottomSheet(context),
                 ),
+                _buildSettingsTile(
+                  context,
+                  icon: Icons.calendar_today_outlined,
+                  title: localizations.calendarType,
+                  subtitle: settingsProvider.calendarType == CalendarType.ethiopian ? localizations.ethiopian : localizations.gregorian,
+                  onTap: () => _showCalendarBottomSheet(context),
+                ),
 
                 const SizedBox(height: 24),
                 _buildSectionHeader(theme, localizations.security),
-                _buildSettingsTile(
-                  context,
-                  icon: Icons.lock_outline,
-                  title: localizations.changePassword,
-                  onTap: () => _showChangePasswordDialog(context),
-                ),
                 _buildSettingsTile(
                   context,
                   icon: Icons.security,
@@ -265,7 +273,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ],
 
-                // Audit Logs - Admin only
+                
                 Consumer<AuthProvider>(
                   builder: (context, authProvider, _) {
                     if (authProvider.userRole?.canManageUsers != true) {
@@ -295,7 +303,13 @@ class SettingsScreen extends StatelessWidget {
                   context,
                   icon: Icons.info_outline,
                   title: localizations.aboutCofiz,
-                  subtitle: localizations.version("1.1.9"),
+                  subtitleWidget: Consumer<UpdateProvider>(
+                    builder: (context, updater, _) => Text(
+                      localizations.version(updater.currentVersion.isNotEmpty
+                          ? updater.currentVersion
+                          : '…'),
+                    ),
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -309,7 +323,7 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 32),
                 TextButton(
                   onPressed: () async {
-                    // Show confirmation dialog
+                    
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -337,11 +351,14 @@ class SettingsScreen extends StatelessWidget {
                       final userName = authProvider.appUser?.displayName ??
                           authProvider.user?.email ??
                           'admin';
-                      await auditProvider.logLogout(
+                      unawaited(auditProvider.logLogout(
                         userId: authProvider.user?.uid ?? 'unknown',
                         userName: userName,
-                      );
+                      ));
                       await authProvider.signOut();
+                      if (context.mounted) {
+                        await Provider.of<PhoneOtpAuthProvider>(context, listen: false).signOut();
+                      }
                       if (context.mounted) {
                         Navigator.of(context)
                             .popUntil((route) => route.isFirst);
@@ -381,10 +398,11 @@ class SettingsScreen extends StatelessWidget {
     required IconData icon,
     required String title,
     String? subtitle,
+    Widget? subtitleWidget,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    // ... same implementation ...
+    
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -394,7 +412,7 @@ class SettingsScreen extends StatelessWidget {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200,
         ),
       ),
       child: Material(
@@ -410,63 +428,20 @@ class SettingsScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          subtitle: subtitle != null
-              ? Text(subtitle,
-                  style: const TextStyle(
-                      color: AppColors.textMutedDark, fontSize: 12))
-              : null,
+          subtitle: subtitleWidget ??
+              (subtitle != null
+                  ? Text(subtitle,
+                      style: const TextStyle(
+                          color: AppColors.textMutedDark, fontSize: 12))
+                  : null),
           trailing: trailing,
         ),
       ),
     );
   }
 
-  // ... helper methods (language bottom sheet, change password) ...
-  // Coping logic from previous file or rewriting
-
-  void _showChangePasswordDialog(BuildContext context) {
-    // ...
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)?.changePasswordDialogTitle ??
-            'Change Password'),
-        content: Text(AppLocalizations.of(context)
-                ?.changePasswordDialogContent ??
-            'To change your password, we will send a password reset link to your email address. Do you want to proceed?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)?.cancel ?? 'Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final authProvider =
-                  Provider.of<AuthProvider>(context, listen: false);
-              final email = authProvider.user?.email;
-
-              if (email != null) {
-                final success = await authProvider.resetPassword(email: email);
-                if (context.mounted) {
-                  AppToast.show(
-                    success
-                        ? AppLocalizations.of(context)!
-                            .passwordResetEmailSent(email)
-                        : AppLocalizations.of(context)!.failedToSendResetEmail(
-                            authProvider.errorMessage ?? 'Unknown'),
-                    success: success,
-                  );
-                }
-              }
-            },
-            child:
-                Text(AppLocalizations.of(context)?.sendEmail ?? 'Send Email'),
-          ),
-        ],
-      ),
-    );
-  }
+  
+  
 
   void _showDensityBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -489,16 +464,16 @@ class SettingsScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Display Size',
-                              style: TextStyle(
+                            Text(
+                              AppLocalizations.of(context)?.displaySize ?? 'Display Size',
+                              style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.12),
+                                color: AppColors.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
@@ -526,7 +501,7 @@ class SettingsScreen extends StatelessWidget {
                             activeTrackColor: AppColors.primary,
                             inactiveTrackColor: Colors.grey.shade300,
                             thumbColor: AppColors.primary,
-                            overlayColor: AppColors.primary.withOpacity(0.18),
+                            overlayColor: AppColors.primary.withValues(alpha: 0.18),
                             activeTickMarkColor: Colors.white,
                             inactiveTickMarkColor: Colors.grey.shade500,
                             tickMarkShape: const RoundSliderTickMarkShape(
@@ -664,6 +639,41 @@ class SettingsScreen extends StatelessWidget {
           );
           settings.setLocale(locale);
         }
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  void _showCalendarBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(AppLocalizations.of(context)?.calendarType ?? 'Calendar', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildCalendarOption(context, AppLocalizations.of(context)?.gregorian ?? 'Gregorian', CalendarType.gregorian),
+              _buildCalendarOption(context, AppLocalizations.of(context)?.ethiopian ?? 'Ethiopian', CalendarType.ethiopian),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCalendarOption(BuildContext context, String name, CalendarType type) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final isSelected = settings.calendarType == type;
+    return ListTile(
+      title: Text(name),
+      trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+      onTap: () {
+        settings.setCalendarType(type);
         Navigator.pop(context);
       },
     );

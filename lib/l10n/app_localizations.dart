@@ -137,7 +137,7 @@ abstract class AppLocalizations {
   /// No description provided for @changeLanguage.
   ///
   /// In en, this message translates to:
-  /// **'Change Language'**
+  /// **'Language'**
   String get changeLanguage;
 
   /// No description provided for @selectLanguage.
@@ -617,13 +617,13 @@ abstract class AppLocalizations {
   /// No description provided for @jenfel.
   ///
   /// In en, this message translates to:
-  /// **'Jenfel'**
+  /// **'Dried'**
   String get jenfel;
 
   /// No description provided for @yetatebe.
   ///
   /// In en, this message translates to:
-  /// **'Yetatebe'**
+  /// **'Washed'**
   String get yetatebe;
 
   /// No description provided for @special.
@@ -1430,6 +1430,18 @@ abstract class AppLocalizations {
   /// **'Email Address'**
   String get emailAddress;
 
+  /// No description provided for @enterYourEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email'**
+  String get enterYourEmail;
+
+  /// No description provided for @pleaseEnterValidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email address'**
+  String get pleaseEnterValidEmail;
+
   /// No description provided for @emailCannotBeChanged.
   ///
   /// In en, this message translates to:
@@ -1507,6 +1519,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not send code. Try again.'**
   String get codeSendFailed;
+
+  /// No description provided for @networkError.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet connection. Check your connection and try again.'**
+  String get networkError;
+
+  /// No description provided for @serverError.
+  ///
+  /// In en, this message translates to:
+  /// **'Server error. Please try again later.'**
+  String get serverError;
 
   /// No description provided for @invalidCode.
   ///
@@ -2402,6 +2426,12 @@ abstract class AppLocalizations {
   /// **'Kg'**
   String get kg;
 
+  /// No description provided for @ton.
+  ///
+  /// In en, this message translates to:
+  /// **'Ton'**
+  String get ton;
+
   /// No description provided for @pingMessageHint.
   ///
   /// In en, this message translates to:
@@ -2474,6 +2504,18 @@ abstract class AppLocalizations {
   /// **'Add Category'**
   String get addCategory;
 
+  /// No description provided for @categoryAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Category added'**
+  String get categoryAdded;
+
+  /// No description provided for @categoryAddFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not add category. Check your connection and try again.'**
+  String get categoryAddFailed;
+
   /// No description provided for @addExpense.
   ///
   /// In en, this message translates to:
@@ -2531,7 +2573,7 @@ abstract class AppLocalizations {
   /// No description provided for @expenses.
   ///
   /// In en, this message translates to:
-  /// **'Expenses'**
+  /// **'Expense'**
   String get expenses;
 
   /// No description provided for @incomeBreakdown.
@@ -3007,6 +3049,372 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wait {seconds}s before retry'**
   String cooldownWait(Object seconds);
+
+  /// No description provided for @calendarType.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get calendarType;
+
+  /// No description provided for @gregorian.
+  ///
+  /// In en, this message translates to:
+  /// **'Gregorian'**
+  String get gregorian;
+
+  /// No description provided for @ethiopian.
+  ///
+  /// In en, this message translates to:
+  /// **'Ethiopian'**
+  String get ethiopian;
+
+  /// No description provided for @debts.
+  ///
+  /// In en, this message translates to:
+  /// **'Debts'**
+  String get debts;
+
+  /// No description provided for @debtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Debt'**
+  String get debtLabel;
+
+  /// No description provided for @totalOpenDebt.
+  ///
+  /// In en, this message translates to:
+  /// **'Total open debt'**
+  String get totalOpenDebt;
+
+  /// No description provided for @debtRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'Debt records'**
+  String get debtRecords;
+
+  /// No description provided for @noOpenDebts.
+  ///
+  /// In en, this message translates to:
+  /// **'No open debts.'**
+  String get noOpenDebts;
+
+  /// No description provided for @markAsPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as paid?'**
+  String get markAsPaid;
+
+  /// No description provided for @confirmDebtPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Collector {name} paid ETB {amount}?'**
+  String confirmDebtPaid(Object name, Object amount);
+
+  /// No description provided for @paid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paid;
+
+  /// No description provided for @noDebtsRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'No debts recorded.'**
+  String get noDebtsRecorded;
+
+  /// No description provided for @debtsWillAppear.
+  ///
+  /// In en, this message translates to:
+  /// **'Debts will appear here when a purchase exceeds balance.'**
+  String get debtsWillAppear;
+
+  /// No description provided for @failedToMarkPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to mark as paid'**
+  String get failedToMarkPaid;
+
+  /// No description provided for @recordAsDebt.
+  ///
+  /// In en, this message translates to:
+  /// **'Record as debt'**
+  String get recordAsDebt;
+
+  /// No description provided for @recordDebtSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Collector has ETB {bal}; remaining ETB {over} will be recorded as debt.'**
+  String recordDebtSubtitle(Object bal, Object over);
+
+  /// No description provided for @recordExcessAsDebt.
+  ///
+  /// In en, this message translates to:
+  /// **'Record excess as debt'**
+  String get recordExcessAsDebt;
+
+  /// No description provided for @recordExcessSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Available cash ETB {avail}; excess ETB {over} will be recorded as debt.'**
+  String recordExcessSubtitle(Object avail, Object over);
+
+  /// No description provided for @insufficientCompanyCash.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient company cash. Toggle \"Record excess as debt\" to proceed. Available: ETB {avail}'**
+  String insufficientCompanyCash(Object avail);
+
+  /// No description provided for @insufficientBalanceDebt.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient balance. Toggle \"Record as debt\" to record the overage separately. Available: ETB {bal}'**
+  String insufficientBalanceDebt(Object bal);
+
+  /// No description provided for @youOwe.
+  ///
+  /// In en, this message translates to:
+  /// **'You owe {name}'**
+  String youOwe(Object name);
+
+  /// No description provided for @tiedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Tied to {source}'**
+  String tiedTo(Object source);
+
+  /// No description provided for @debtAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Debt amount'**
+  String get debtAmount;
+
+  /// No description provided for @debtExceedsTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Debt amount cannot exceed the total amount'**
+  String get debtExceedsTotal;
+
+  /// No description provided for @debtBelowShortfall.
+  ///
+  /// In en, this message translates to:
+  /// **'Debt must cover at least the shortfall of ETB {short}'**
+  String debtBelowShortfall(Object short);
+
+  /// No description provided for @forgiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgiven'**
+  String get forgiven;
+
+  /// No description provided for @reminders.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get reminders;
+
+  /// No description provided for @nightlyReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Nightly reminder'**
+  String get nightlyReminder;
+
+  /// No description provided for @nightlyReminderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify if no record today'**
+  String get nightlyReminderSubtitle;
+
+  /// No description provided for @reminderTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder time'**
+  String get reminderTime;
+
+  /// No description provided for @displaySize.
+  ///
+  /// In en, this message translates to:
+  /// **'Display Size'**
+  String get displaySize;
+
+  /// No description provided for @pingAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Ping Admin'**
+  String get pingAdmin;
+
+  /// No description provided for @registrationSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration submitted. Waiting for approval.'**
+  String get registrationSubmitted;
+
+  /// No description provided for @submitRegistration.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Registration'**
+  String get submitRegistration;
+
+  /// No description provided for @requiredToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'Required to receive email notifications'**
+  String get requiredToReceive;
+
+  /// No description provided for @enterCurrentPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter current PIN'**
+  String get enterCurrentPin;
+
+  /// No description provided for @investor.
+  ///
+  /// In en, this message translates to:
+  /// **'Investor'**
+  String get investor;
+
+  /// No description provided for @fullAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Full access'**
+  String get fullAccess;
+
+  /// No description provided for @readOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Read only'**
+  String get readOnly;
+
+  /// No description provided for @writeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your message...'**
+  String get writeMessage;
+
+  /// No description provided for @toggleTodayTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle Today / Total'**
+  String get toggleTodayTotal;
+
+  /// No description provided for @requiresCurrentPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires current PIN'**
+  String get requiresCurrentPin;
+
+  /// No description provided for @phoneExample.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone (e.g. 0911234567)'**
+  String get phoneExample;
+
+  /// No description provided for @appUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'App update'**
+  String get appUpdate;
+
+  /// No description provided for @checkingForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates...'**
+  String get checkingForUpdates;
+
+  /// No description provided for @upToDateShort.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the latest version'**
+  String get upToDateShort;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get checkAgain;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get updateAvailable;
+
+  /// No description provided for @notNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notNow;
+
+  /// No description provided for @updateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get updateAction;
+
+  /// No description provided for @installNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get installNow;
+
+  /// No description provided for @downloadingUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update...'**
+  String get downloadingUpdate;
+
+  /// No description provided for @readyToInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download complete — tap to install'**
+  String get readyToInstall;
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check for updates'**
+  String get updateCheckFailed;
+
+  /// No description provided for @downloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed — try again'**
+  String get downloadFailed;
+
+  /// No description provided for @whatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s new'**
+  String get whatsNew;
+
+  /// No description provided for @latestVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest: {version}'**
+  String latestVersion(Object version);
+
+  /// No description provided for @updatePushedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Cofiz update'**
+  String get updatePushedTitle;
+
+  /// No description provided for @updatePushedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is ready to install'**
+  String updatePushedBody(Object version);
+
+  /// No description provided for @showMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get showMore;
+
+  /// No description provided for @showLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get showLess;
 }
 
 class _AppLocalizationsDelegate

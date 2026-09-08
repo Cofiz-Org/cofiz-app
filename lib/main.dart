@@ -25,21 +25,22 @@ import 'core/services/expense_service.dart';
 import 'core/services/auth_backend.dart';
 import 'core/services/auth_backend_firebase.dart';
 import 'core/providers/phone_otp_auth_provider.dart';
+import 'core/providers/update_provider.dart';
 import 'core/services/pin_service.dart';
 import 'core/providers/lock_state_provider.dart';
 import 'core/services/idle_lock_service.dart';
+import 'core/utils/app_navigator.dart';
 import 'core/services/debt_service.dart';
 import 'core/providers/debt_provider.dart';
 import 'core/services/notification_trigger_service.dart';
 import 'presentation/screens/auth/create_pin_screen.dart';
 import 'presentation/screens/auth/pin_lock_screen.dart';
 import 'presentation/widgets/custom_bottom_nav.dart';
-import 'presentation/widgets/offline_indicator.dart';
 import 'presentation/widgets/double_back_exit.dart';
 import 'presentation/widgets/app_toast.dart';
 import 'presentation/widgets/animated_splash_screen.dart';
 import 'presentation/widgets/telegram_login_listener.dart';
-import 'presentation/screens/auth/login_screen.dart';
+import 'presentation/screens/auth/phone_login_screen.dart';
 import 'presentation/widgets/background_pattern.dart';
 import 'presentation/screens/reports/reports_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
@@ -68,6 +69,10 @@ void main() async {
     }
   }
   debugPrint('[main] Firebase ready');
+
+  debugPrint('[main] initializing RelayConfig...');
+  await RelayConfig.init();
+  debugPrint('[main] RelayConfig ready');
 
   // Register the FCM background handler early (cheap, local).
   FCMService().setup();
@@ -106,16 +111,10 @@ Future<void> _initializeNetworkServices() async {
       FCMService().initialize(),
       IncomeService().initializeDefaultSaleCategories(),
       ExpenseService().initializeDefaultExpenseCategories(),
-      RelayConfig.init(),
+      DebtService().wipeLegacyCollectorDebtsOnce(),
     ]);
   } catch (e) {
     debugPrint('Background service initialization failed: $e');
-  }
-  // Ensure RelayConfig attempted even if other services failed
-  try {
-    await RelayConfig.ensureInitialized();
-  } catch (e) {
-    debugPrint('[RelayConfig] post-init ensure failed: $e');
   }
 }
 
@@ -138,27 +137,35 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
   late final LockStateProvider _lockState;
   late final IdleLockService _idleLock;
   late final PhoneOtpAuthProvider _phoneAuth;
+  late final FocusNode _rootFocusNode;
+
+  void _onFocusActivity() => _idleLock.onUserInteraction();
 
   @override
   void initState() {
     super.initState();
     _pinService = PinService();
     _lockState = LockStateProvider(pinService: _pinService);
+    _rootFocusNode = FocusNode();
     _phoneAuth = PhoneOtpAuthProvider(
       backend: AuthBackend(
-        baseUrl: RelayConfig.relayUrl.isNotEmpty ? RelayConfig.relayUrl : 'https://fcm-relay.example',
+        baseUrl: RelayConfig.relayUrl.isNotEmpty ? RelayConfig.relayUrl : 'https://cofiz.natanim.dev',
         secret: RelayConfig.relaySecret,
       ),
       firebaseAuth: AuthBackendFirebase(),
       pinService: _pinService,
     );
     _idleLock = IdleLockService(lockState: _lockState);
-    _lockState.initialize();
-    _idleLock.attach();
+    _lockState.initialize().whenComplete(() {
+      if (mounted) _idleLock.attach();
+    });
+    FocusManager.instance.addListener(_onFocusActivity);
   }
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onFocusActivity);
+    _rootFocusNode.dispose();
     _idleLock.detach();
     super.dispose();
   }
@@ -186,12 +193,14 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => AuditProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => DebtProvider(debtService: DebtService(), notificationService: NotificationTriggerService())),
+        ChangeNotifierProvider(create: (_) => UpdateProvider()..initialize()),
+        ChangeNotifierProvider(create: (_) => DebtProvider(debtService: DebtService(), notificationService: NotificationTriggerService())..initialize()),
       ],
       child: Consumer3<ThemeProvider, SettingsProvider, DensityProvider>(
         builder: (context, themeProvider, settingsProvider, densityProvider, _) {
           return MaterialApp(
             title: 'Cofiz',
+            navigatorKey: AppNavigator.key,
             locale: settingsProvider.locale,
             theme: AppTheme.lightTheme.copyWith(visualDensity: densityProvider.visualDensity),
             darkTheme: AppTheme.darkTheme.copyWith(visualDensity: densityProvider.visualDensity),
@@ -213,16 +222,24 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
                 child: AppToastHost(
                   child: MediaQuery(
                     data: mq.copyWith(textScaler: TextScaler.linear(systemScale * densityProvider.textScaleFactor)),
-                    child: Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerDown: (_) => _idleLock.onUserInteraction(),
-                      onPointerMove: (_) => _idleLock.onUserInteraction(),
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (n) {
-                          _idleLock.onUserInteraction();
-                          return false;
-                        },
-                        child: TelegramLoginListener(child: child!),
+                    child: Focus(
+                      focusNode: _rootFocusNode,
+                      onKeyEvent: (node, event) {
+                        _idleLock.onUserInteraction();
+                        return KeyEventResult.ignored;
+                      },
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerDown: (_) => _idleLock.onUserInteraction(),
+                        onPointerMove: (_) => _idleLock.onUserInteraction(),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (n) {
+                            _idleLock.onUserInteraction();
+                            return false;
+                          },
+                          child:
+                              TelegramLoginListener(child: child!),
+                        ),
                       ),
                     ),
                   ),
@@ -249,12 +266,11 @@ class _AuthGateState extends State<AuthGate> {
   static const Duration _minSplashDuration = Duration(milliseconds: 1400);
 
   bool _splashElapsed = false;
+  String? _lastInitUid;
 
   @override
   void initState() {
     super.initState();
-    // Ensure the branded splash animation plays fully even when the auth
-    // check resolves instantly.
     Timer(_minSplashDuration, () {
       if (mounted) setState(() => _splashElapsed = true);
     });
@@ -262,32 +278,85 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<AuthProvider, LockStateProvider>(
-      builder: (context, authProvider, lockState, _) {
+    return Consumer3<AuthProvider, LockStateProvider, PhoneOtpAuthProvider>(
+      builder: (context, authProvider, lockState, otpProvider, _) {
         // Re-initialize lock state when uid changes (per-user PIN).
         if (authProvider.isAuthenticated && authProvider.user != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Provider.of<NotificationProvider>(context, listen: false).init(authProvider.user!.uid);
-            lockState.initialize(uid: authProvider.user!.uid);
-          });
+          final uid = authProvider.user!.uid;
+          if (_lastInitUid != uid) {
+            _lastInitUid = uid;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Provider.of<NotificationProvider>(context, listen: false).init(uid);
+              lockState.initialize(uid: uid);
+            });
+          }
         } else {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Provider.of<NotificationProvider>(context, listen: false).disposeListener();
-          });
+          if (_lastInitUid != null) {
+            _lastInitUid = null;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Provider.of<NotificationProvider>(context, listen: false).disposeListener();
+              lockState.onSignedOut();
+            });
+          } else {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Provider.of<NotificationProvider>(context, listen: false).disposeListener();
+            });
+          }
         }
         if (authProvider.status == AuthStatus.uninitialized || !_splashElapsed) {
           return const AnimatedSplashScreen();
         }
 
-        // PIN lock gates — forced after auth.
-        if (authProvider.isAuthenticated) {
-          if (lockState.state == PinLockState.awaitingFirstSetup) {
-            return const CreatePinScreen();
-          }
-          if (lockState.state == PinLockState.locked) {
-            return const PinLockScreen();
-          }
+        if (!authProvider.isAuthenticated &&
+            (otpProvider.state == OtpAuthState.verifying ||
+                otpProvider.state == OtpAuthState.awaitingTelegramReturn ||
+                otpProvider.isAuthenticated)) {
+          return const AnimatedSplashScreen();
         }
+
+        if (authProvider.isAuthenticated &&
+            lockState.state == PinLockState.awaitingFirstSetup) {
+          return const CreatePinScreen();
+        }
+
+        // While the per-user lock state is still loading, never paint the
+        // dashboard underneath — show a holding frame with the exact same
+        // background as PinLockScreen so the transition is seamless.
+        if (authProvider.isAuthenticated && !lockState.isInitialized) {
+          final theme = Theme.of(context);
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            body: const Stack(
+              children: [
+                BackgroundPattern(),
+                SafeArea(
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Render the lock inline instead of as a pushed overlay route so the
+        // dashboard is never visible for a frame behind it (the flash).
+        if (authProvider.isAuthenticated &&
+            lockState.state == PinLockState.locked) {
+          return const PopScope(
+            canPop: false,
+            child: PinLockScreen(),
+          );
+        }
+
+        final Widget content = (() {
 
         // Navigate based on auth status AND user role
         if (authProvider.isAuthenticated) {
@@ -327,6 +396,9 @@ class _AuthGateState extends State<AuthGate> {
                       ElevatedButton.icon(
                         onPressed: () async {
                           await authProvider.signOut();
+                          if (context.mounted) {
+                            await Provider.of<PhoneOtpAuthProvider>(context, listen: false).signOut();
+                          }
                         },
                         icon: const Icon(Icons.logout),
                         label: const Text('Sign Out'),
@@ -363,7 +435,39 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         // Not authenticated - show login
-        return const LoginScreen();
+        return const PhoneLoginScreen();
+        })();
+
+        // Fade between lock / holding / dashboard so unlock and post-login
+        // transitions are smooth instead of a hard cut / flicker.
+        final String switchKey;
+        if (authProvider.isAuthenticated &&
+            lockState.state == PinLockState.locked) {
+          switchKey = 'locked';
+        } else if (authProvider.isAuthenticated && !lockState.isInitialized) {
+          switchKey = 'lock-loading';
+        } else if (authProvider.isAuthenticated &&
+            lockState.state == PinLockState.awaitingFirstSetup) {
+          switchKey = 'pin-setup';
+        } else if (authProvider.isAuthenticated) {
+          switchKey = 'main-${authProvider.user?.uid}';
+        } else {
+          switchKey = 'login-${otpProvider.state}';
+        }
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            children: [...previousChildren, if (currentChild != null) currentChild],
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(switchKey),
+            child: content,
+          ),
+        );
       },
     );
   }
@@ -372,11 +476,11 @@ class _AuthGateState extends State<AuthGate> {
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
-  static final GlobalKey<_MainLayoutState> mainLayoutKey =
+  static final GlobalKey<_MainLayoutState> _mainLayoutKey =
       GlobalKey<_MainLayoutState>();
 
   static void navigateTo(int index) {
-    mainLayoutKey.currentState?._onNavTap(index);
+    _mainLayoutKey.currentState?._onNavTap(index);
   }
 
   @override

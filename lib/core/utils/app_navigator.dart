@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/debt_model.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
+import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/transaction/all_debts_screen.dart';
 import '../../presentation/screens/transaction/collector_debts_screen.dart';
 import '../../presentation/screens/worker/worker_dashboard_screen.dart';
@@ -23,6 +24,8 @@ class AppNavigator {
       case 'registrationApproved':
       case 'registrationDenied':
         return null;
+      case 'app_update':
+        return const SettingsScreen();
       case 'debtRecorded':
         final collectorId = data['collectorId'] ?? '';
         if (collectorId.isEmpty ||
