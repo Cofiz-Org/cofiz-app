@@ -68,7 +68,7 @@ class _OfflineIndicatorState extends State<OfflineIndicator> {
       child: Row(
         children: [
           Icon(Icons.cloud_off_rounded,
-              color: kOfflineTextColor.withOpacity(0.9), size: 16),
+              color: kOfflineTextColor.withValues(alpha: 0.9), size: 16),
           const SizedBox(width: 6),
           Expanded(
             child: Text(

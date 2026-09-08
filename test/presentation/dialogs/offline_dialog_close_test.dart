@@ -87,7 +87,7 @@ void main() {
             TransactionService(firestore: FakeFirebaseFirestore()),
       );
 
-      final success = await provider.recordCoffeePurchase(
+      final txId = await provider.recordCoffeePurchase(
         workerId: 'w1',
         workerName: 'W1',
         amount: 120,
@@ -99,7 +99,7 @@ void main() {
         localReceiptPath: '/tmp/receipt.jpg',
       );
 
-      expect(success, isTrue);
+      expect(txId, isNotNull);
       final ops = OfflineCacheService()
           .getPendingOperations()
           .where((o) => o['type'] == 'createTransaction')
@@ -117,7 +117,7 @@ void main() {
             TransactionService(firestore: FakeFirebaseFirestore()),
       );
 
-      final success = await provider.distributeMoneyToWorker(
+      final txId = await provider.distributeMoneyToWorker(
         workerId: 'w1',
         workerName: 'W1',
         amount: 50,
@@ -125,7 +125,7 @@ void main() {
         localReceiptPath: '/tmp/receipt_dist.jpg',
       );
 
-      expect(success, isTrue);
+      expect(txId, isNotNull);
       final ops = OfflineCacheService()
           .getPendingOperations()
           .where((o) => o['type'] == 'createTransaction')

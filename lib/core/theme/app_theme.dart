@@ -33,7 +33,7 @@ class AppTheme {
   static final PageTransitionsTheme _pageTransitions = PageTransitionsTheme(
     builders: {
       for (final platform in TargetPlatform.values)
-        platform: _AppFadePageTransitionsBuilder(),
+        platform: const _AppFadePageTransitionsBuilder(),
     },
   );
 

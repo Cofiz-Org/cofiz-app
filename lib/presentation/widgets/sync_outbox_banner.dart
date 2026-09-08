@@ -3,7 +3,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/services/offline_cache_service.dart';
 import '../../core/services/offline_sync_service.dart';
-import '../../l10n/app_localizations.dart';
 
 /// Inline outbox status: plain "N pending · M failed" white text with a
 /// Retry tap action (and per-failed discard icons when failures exist).
@@ -106,7 +105,7 @@ class _SyncOutboxBannerState extends State<SyncOutboxBanner> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
                   child: Icon(Icons.close_rounded,
-                      size: 14, color: Colors.white.withOpacity(0.75)),
+                      size: 14, color: Colors.white.withValues(alpha: 0.75)),
                 ),
               ),
           ],

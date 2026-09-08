@@ -10,7 +10,7 @@ enum UserRole {
       case UserRole.worker:
         return 'Collector';
       case UserRole.viewer:
-        return 'Viewer';
+        return 'Investor';
     }
   }
 
@@ -21,7 +21,7 @@ enum UserRole {
       case UserRole.worker:
         return 'Can view own dashboard, record transactions, and view history';
       case UserRole.viewer:
-        return 'Read-only access to reports and data';
+        return 'Read-only access to dashboards, transactions, and reports';
     }
   }
 
@@ -53,6 +53,7 @@ DateTime? _parseDateTime(dynamic value) {
 class AppUser {
   final String uid;
   final String email;
+  final String? phone;
   final String displayName;
   final UserRole role;
   final String? photoUrl;
@@ -67,6 +68,7 @@ class AppUser {
     required this.uid,
     required this.email,
     required this.displayName,
+    this.phone,
     this.role = UserRole.viewer,
     this.photoUrl,
     required this.createdAt,
@@ -91,6 +93,7 @@ class AppUser {
     return AppUser(
       uid: uid,
       email: data['email'] ?? '',
+      phone: data['phone'] as String?,
       displayName: data['displayName'] ?? '',
       role: parsedRole,
       photoUrl: data['photoUrl'],
@@ -107,6 +110,7 @@ class AppUser {
   Map<String, dynamic> toFirestore() {
     return {
       'email': email,
+      'phone': phone,
       'displayName': displayName,
       'role': role.name,
       'photoUrl': photoUrl,
@@ -132,6 +136,7 @@ class AppUser {
     return AppUser(
       uid: json['uid'] ?? '',
       email: json['email'] ?? '',
+      phone: json['phone'] as String?,
       displayName: json['displayName'] ?? '',
       role: UserRole.values.firstWhere(
         (r) => r.name == json['role'],
@@ -155,6 +160,7 @@ class AppUser {
     String? uid,
     String? email,
     String? displayName,
+    String? phone,
     UserRole? role,
     String? photoUrl,
     DateTime? createdAt,
@@ -167,6 +173,7 @@ class AppUser {
     return AppUser(
       uid: uid ?? this.uid,
       email: email ?? this.email,
+      phone: phone ?? this.phone,
       displayName: displayName ?? this.displayName,
       role: role ?? this.role,
       photoUrl: photoUrl ?? this.photoUrl,

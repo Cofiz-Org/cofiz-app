@@ -4,11 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
 import '../../core/providers/phone_otp_auth_provider.dart';
 
-/// Listens for incoming deep links of the form `cofiz://auth/telegram?...`
-/// from the Telegram Login Widget and forwards the fields to
-/// [PhoneOtpAuthProvider.completeTelegramLogin].
-///
-/// Mounted once at app root in `main.dart` so it lives for the app's lifetime.
 class TelegramLoginListener extends StatefulWidget {
   const TelegramLoginListener({super.key, required this.child});
   final Widget child;
@@ -24,9 +19,7 @@ class _TelegramLoginListenerState extends State<TelegramLoginListener> {
   @override
   void initState() {
     super.initState();
-    // Listen for subsequent deep links.
     _sub = _appLinks.uriLinkStream.listen(_onUri, onError: (_) {});
-    // Also handle a deep link that launched the app.
     _appLinks.getInitialLink().then((uri) {
       if (uri != null) _onUri(uri);
     }).catchError((_) {});
@@ -39,10 +32,18 @@ class _TelegramLoginListenerState extends State<TelegramLoginListener> {
   }
 
   void _onUri(Uri uri) {
-    // Accept only our scheme. The Telegram widget posts to the URL we set as
-    // `return_to` (cofiz://auth/telegram) with the user fields as query params.
     if (uri.scheme != 'cofiz') return;
-    if (uri.host != 'auth' || uri.pathSegments.first != 'telegram') return;
+    if (uri.host != 'auth') return;
+    if (uri.pathSegments.isEmpty) return;
+    if (uri.pathSegments.first != 'telegram') return;
+    if (uri.pathSegments.length > 1 && uri.pathSegments[1] == 'success') {
+      final token = uri.queryParameters['customToken'];
+      final uid = uri.queryParameters['uid'];
+      if (token == null || token.isEmpty) return;
+      if (!mounted) return;
+      context.read<PhoneOtpAuthProvider>().completeWithCustomToken(customToken: token, uid: uid ?? '');
+      return;
+    }
     final fields = <String, String>{};
     uri.queryParameters.forEach((k, v) {
       fields[k] = v;

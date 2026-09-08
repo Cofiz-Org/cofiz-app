@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 class TransferPairCard<T> extends StatefulWidget {
   final T first;
   final T second;
+  final double margin;
   final Widget Function(
     T item, {
     double bottomMargin,
@@ -15,6 +16,7 @@ class TransferPairCard<T> extends StatefulWidget {
     required this.first,
     required this.second,
     required this.buildRow,
+    this.margin = 12,
   });
 
   @override
@@ -55,7 +57,7 @@ class _TransferPairCardState<T> extends State<TransferPairCard<T>> {
         final spreadTap = _spread ? null : _spreadTap;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: EdgeInsets.only(bottom: widget.margin),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutCubic,
@@ -110,7 +112,7 @@ class _TransferPairCardState<T> extends State<TransferPairCard<T>> {
       child: Row(
         children: [
           const SizedBox(width: 36),
-          Container(width: 2, color: warmOrange.withOpacity(0.4)),
+          Container(width: 2, color: warmOrange.withValues(alpha: 0.4)),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: Icon(Icons.expand_less, size: 14, color: warmOrange),

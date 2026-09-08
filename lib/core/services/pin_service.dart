@@ -3,7 +3,6 @@ import 'dart:isolate';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const _kBaseKey = 'pin_lock_v1';
@@ -38,7 +37,7 @@ class PinService {
   final FirebaseAuth? _auth;
 
   String _keyForUid(String? uid) =>
-      uid == null || uid.isEmpty ? _kBaseKey : '${_kBaseKey}::$uid';
+      uid == null || uid.isEmpty ? _kBaseKey : '$_kBaseKey::$uid';
 
   /// Resolves current uid (if Firebase available) — falls back to global key.
   String _currentKey() {

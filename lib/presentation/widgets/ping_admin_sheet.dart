@@ -6,6 +6,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/services/connectivity_service.dart';
 import '../../core/services/ping_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import 'app_toast.dart';
 
 /// Presets per role
@@ -224,7 +225,7 @@ class _PingAdminSheetState extends State<PingAdminSheet> {
                 maxLines: 4,
                 minLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'Write your message...',
+                  hintText: AppLocalizations.of(context)?.writeMessage ?? 'Write your message...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -266,7 +267,7 @@ class _PingAdminSheetState extends State<PingAdminSheet> {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Send', style: TextStyle(fontWeight: FontWeight.w600)),
+                      : Text(AppLocalizations.of(context)?.send ?? 'Send', style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -295,10 +296,10 @@ class PingAdminButton extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: () => showPingAdminSheet(context, UserRole.worker),
           icon: const Icon(Icons.send_rounded, size: 18),
-          label: const Text('Ping Admin'),
+          label: Text(AppLocalizations.of(context)?.pingAdmin ?? 'Ping Admin'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
-            side: BorderSide(color: AppColors.primary.withOpacity(0.6)),
+            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.6)),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/models/notification_model.dart';
 import '../../widgets/custom_header.dart';
 import '../../widgets/background_pattern.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../core/utils/app_navigator.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -64,7 +65,7 @@ class NotificationsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
+                      DateFormatter.formatFull(DateTime.now()),
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
@@ -120,7 +121,7 @@ class NotificationsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final theme = Theme.of(context);
-    final cardColor = theme.cardColor; // Or theme.colorScheme.surface
+    final cardColor = theme.cardColor; 
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -130,11 +131,11 @@ class NotificationsScreen extends StatelessWidget {
         border: Border.all(
           color: notification.isRead
               ? (isDark ? Colors.white10 : Colors.grey.shade200)
-              : AppColors.primary.withOpacity(0.5),
+              : AppColors.primary.withValues(alpha: 0.5),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -148,6 +149,11 @@ class NotificationsScreen extends StatelessWidget {
               Provider.of<NotificationProvider>(context, listen: false)
                   .markAsRead(notification.id);
             }
+            final meta = <String, String>{};
+            notification.metadata?.forEach((k, v) {
+              meta[k.toString()] = v.toString();
+            });
+            AppNavigator.openNotificationType(notification.type.name, meta);
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
@@ -210,8 +216,8 @@ class NotificationsScreen extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: TextButton(
                               onPressed: () {
-                                // Navigate to report submission or focus on report
-                                // For now just mark read
+                                
+                                
                                 Provider.of<NotificationProvider>(context,
                                         listen: false)
                                     .markAsRead(notification.id);
@@ -238,6 +244,8 @@ class NotificationsScreen extends StatelessWidget {
         return Icons.campaign_outlined;
       case NotificationType.dailyReportRequest:
         return Icons.assignment_outlined;
+      case NotificationType.debtRecorded:
+        return Icons.money_off_outlined;
       case NotificationType.alert:
         return Icons.warning_amber_rounded;
       case NotificationType.info:
@@ -260,7 +268,7 @@ class NotificationsScreen extends StatelessWidget {
     } else if (difference.inDays < 7) {
       return l10n.daysAgo(difference.inDays);
     } else {
-      return DateFormat('MMM d').format(time);
+      return DateFormatter.formatDate(time);
     }
   }
 }

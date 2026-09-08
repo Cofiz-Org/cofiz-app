@@ -49,6 +49,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       final file = File('${dir.path}/$fileName');
       await file.writeAsString(jsonString);
 
+      if (!mounted) return;
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final auditProvider = Provider.of<AuditProvider>(context, listen: false);
       await auditProvider.logDataExported(
@@ -130,7 +131,6 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -200,7 +200,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

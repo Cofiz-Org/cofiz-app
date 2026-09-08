@@ -2,9 +2,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
+import '../services/push_relay_service.dart';
 
 class NotificationProvider with ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
+  final PushRelayService? _pushRelayOverride;
+  late final PushRelayService _pushRelay =
+      _pushRelayOverride ?? PushRelayService.shared;
+
+  NotificationProvider(
+      {FirebaseFirestore? firestore, PushRelayService? pushRelay})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _pushRelayOverride = pushRelay;
 
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
@@ -115,6 +124,12 @@ class NotificationProvider with ChangeNotifier {
       await _firestore
           .collection('notifications')
           .add(notification.toFirestore());
+      await _pushRelay.sendPush(
+        targetUserId: targetUserId,
+        title: title,
+        body: body,
+        type: NotificationType.ping.name,
+      );
     } catch (e) {
       debugPrint('Error sending ping: $e');
       rethrow;
@@ -155,6 +170,14 @@ class NotificationProvider with ChangeNotifier {
       }
 
       await batch.commit();
+      for (var doc in workersSnapshot.docs) {
+        await _pushRelay.sendPush(
+          targetUserId: doc.id,
+          title: title,
+          body: body,
+          type: NotificationType.dailyReportRequest.name,
+        );
+      }
     } catch (e) {
       debugPrint('Error sending global ping: $e');
       rethrow;

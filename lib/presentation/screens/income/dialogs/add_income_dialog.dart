@@ -11,6 +11,7 @@ import '../../../../core/providers/audit_provider.dart';
 import '../../../../core/services/income_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../widgets/app_toast.dart';
+import '../../../widgets/styled_dropdown.dart';
 
 class AddIncomeDialog extends StatefulWidget {
   final IncomeRecord? existing;
@@ -129,7 +130,7 @@ class _AddIncomeDialogState extends State<AddIncomeDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: theme.dialogBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       child: Container(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -193,26 +194,15 @@ class _AddIncomeDialogState extends State<AddIncomeDialog> {
                     ),
                   ),
                 ] else ...[
-                  DropdownButtonFormField<String>(
-                    // Controlled `value`, NOT initialValue: categories load
-                    // async after the first build and initialValue ignores
-                    // rebuilds, leaving the field null -> validation fails.
+                  StyledDropdown<String>(
+                    values: _saleCategories,
                     value: _saleCategories.contains(_selectedSaleCategory)
                         ? _selectedSaleCategory
                         : null,
-                    decoration: InputDecoration(
-                      labelText: l10n.selectSaleCategory,
-                      prefixIcon:
-                          const Icon(Icons.category, color: AppColors.primary),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor:
-                          isDark ? Colors.grey.shade800 : Colors.grey.shade50,
-                    ),
-                    items: _saleCategories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
+                    label: (c) => c,
+                    leading: Icons.category,
+                    hint: l10n.selectSaleCategory,
+                    bordered: true,
                     onChanged: (value) =>
                         setState(() => _selectedSaleCategory = value),
                     validator: (value) =>
@@ -229,7 +219,7 @@ class _AddIncomeDialogState extends State<AddIncomeDialog> {
                         RegExp(r'^\d+\.?\d{0,2}')),
                   ],
                   decoration: InputDecoration(
-                    labelText: 'Amount (${l10n.currency ?? 'ETB'})',
+                    labelText: l10n.amountWithCurrency(l10n.currency),
                     prefixIcon: const Icon(Icons.attach_money,
                         color: AppColors.primary),
                     border: OutlineInputBorder(

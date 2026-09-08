@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/providers/transaction_provider.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/models/worker_model.dart';
 import '../../../../core/models/transaction_model.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../widgets/worker_transaction_tile.dart';
 import '../../../widgets/app_toast.dart';
+import '../../../widgets/styled_dropdown.dart';
 import '../../../widgets/custom_header.dart';
 
 class WorkerHistoryTab extends StatefulWidget {
@@ -88,42 +89,19 @@ class _WorkerHistoryTabState extends State<WorkerHistoryTab> {
 
   Widget _buildFilterButton() {
     final l10n = AppLocalizations.of(context)!;
-    return PopupMenuButton<String?>(
-      tooltip: l10n.filter,
-      icon: Icon(
-        Icons.filter_list,
-        color: _typeFilter != null
-            ? AppColors.primary
-            : (widget.isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-        size: 20,
-      ),
-      onSelected: (value) => setState(() => _typeFilter = value),
-      itemBuilder: (context) => [
-        PopupMenuItem<String?>(
-          value: null,
-          child: Text(
-            l10n.all,
-            style: TextStyle(
-              fontWeight: _typeFilter == null ? FontWeight.bold : null,
-            ),
-          ),
-        ),
-        const PopupMenuDivider(),
-        ...[
-          l10n.distribute,
-          l10n.returnMoney,
-          l10n.coffeePurchase,
-          l10n.transfer,
-        ].map((type) => PopupMenuItem<String?>(
-              value: type,
-              child: Text(
-                type,
-                style: TextStyle(
-                  fontWeight: _typeFilter == type ? FontWeight.bold : null,
-                ),
-              ),
-            )),
-      ],
+    final options = [
+      l10n.distribute,
+      l10n.returnMoney,
+      l10n.coffeePurchase,
+      l10n.transfer,
+    ];
+    return StyledDropdown<String?>(
+      width: 170,
+      values: [null, ...options],
+      value: options.contains(_typeFilter) ? _typeFilter : null,
+      label: (type) => type ?? l10n.all,
+      leading: Icons.filter_list,
+      onChanged: (value) => setState(() => _typeFilter = value),
     );
   }
 
@@ -231,7 +209,7 @@ class _WorkerHistoryTabState extends State<WorkerHistoryTab> {
         // Group transactions by date
         final groupedTransactions = <String, List<MoneyTransaction>>{};
         for (final tx in filteredTransactions) {
-          final dateKey = DateFormat('MMMM d, yyyy').format(tx.createdAt);
+          final dateKey = DateFormatter.formatDate(tx.createdAt);
           groupedTransactions.putIfAbsent(dateKey, () => []).add(tx);
         }
 
@@ -345,7 +323,7 @@ class _WorkerHistoryTabState extends State<WorkerHistoryTab> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: BorderSide(
-                              color: AppColors.primary.withOpacity(0.5)),
+                              color: AppColors.primary.withValues(alpha: 0.5)),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(

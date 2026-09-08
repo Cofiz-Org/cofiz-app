@@ -19,7 +19,6 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
   late TextEditingController _nameController;
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
-  late TextEditingController _limitController;
   bool _isLoading = false;
 
   @override
@@ -29,8 +28,6 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
     _nameController = TextEditingController(text: settings.companyName);
     _addressController = TextEditingController(text: settings.companyAddress);
     _phoneController = TextEditingController(text: settings.companyPhone);
-    _limitController =
-        TextEditingController(text: settings.distributionLimit.toString());
   }
 
   @override
@@ -38,7 +35,6 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
-    _limitController.dispose();
     super.dispose();
   }
 
@@ -60,10 +56,7 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
           phone: _phoneController.text,
         );
 
-        await settings.updateDistributionLimit(
-          double.tryParse(_limitController.text) ?? 5000.0,
-        );
-
+        if (!mounted) return;
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final auditProvider =
             Provider.of<AuditProvider>(context, listen: false);
@@ -95,7 +88,6 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final authProvider = Provider.of<AuthProvider>(context);
     final canEdit = _canEdit(authProvider);
 
@@ -138,29 +130,6 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
                 icon: Icons.phone,
                 keyboardType: TextInputType.phone,
                 readOnly: !canEdit,
-              ),
-
-              const SizedBox(height: 32),
-
-              _buildSectionHeader(
-                  context, AppLocalizations.of(context)!.businessLimits),
-              const SizedBox(height: 16),
-              _buildTextField(
-                controller: _limitController,
-                label:
-                    AppLocalizations.of(context)!.maxDistributionLimit('ETB'),
-                icon: Icons.attach_money,
-                keyboardType: TextInputType.number,
-                readOnly: !canEdit,
-                validator: (v) {
-                  if (v == null || v.isEmpty) {
-                    return AppLocalizations.of(context)!.required;
-                  }
-                  if (double.tryParse(v) == null) {
-                    return AppLocalizations.of(context)!.invalidNumber;
-                  }
-                  return null;
-                },
               ),
 
               const SizedBox(height: 40),
@@ -240,12 +209,12 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
         ),
         filled: true,
         fillColor: readOnly
             ? (isDark
-                ? Colors.grey.shade800.withOpacity(0.5)
+                ? Colors.grey.shade800.withValues(alpha: 0.5)
                 : Colors.grey.shade100)
             : (isDark ? Colors.grey.shade900 : Colors.grey.shade50),
       ),

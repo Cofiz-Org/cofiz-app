@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/providers/transaction_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/income_provider.dart';
 import '../../../core/providers/expense_provider.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../widgets/eth_date_picker_dialog.dart';
+import '../../widgets/debt_tag_notes.dart';
+import '../../widgets/styled_dropdown.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/user_model.dart';
 import '../../widgets/ping_admin_sheet.dart';
 import '../../../core/models/transaction_model.dart';
+import '../../../core/models/debt_model.dart';
 import '../../../core/models/income_record_model.dart';
 import '../../../core/models/expense_record_model.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../widgets/custom_header.dart';
 import '../../widgets/offline_indicator.dart';
@@ -46,9 +51,9 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   String? _dateFilter;
   String? _typeFilter;
-  int _itemsToShow = 20; // Pagination - items per page
+  int _itemsToShow = 20; 
   static const int _itemsPerLoad = 20;
-  DateTime? _selectedDate; // For "Choose Date" option
+  DateTime? _selectedDate; 
   bool _showCashFlow = false;
 
   late List<String> _dateOptions;
@@ -77,7 +82,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       l10n.expenses,
     ];
 
-    // Ensure initial or valid selection
+    
     if (_dateFilter == null || !_dateOptions.contains(_dateFilter)) {
       _dateFilter = l10n.allTime;
     }
@@ -106,33 +111,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _pickDate() async {
     final l10n = AppLocalizations.of(context)!;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
 
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Theme.of(context).cardColor,
-              onSurface:
-                  Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
+    final DateTime? picked;
+    if (settings.calendarType == CalendarType.ethiopian) {
+      picked = await showEthDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+      );
+    } else {
+      picked = await showThemedDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+      );
+    }
 
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
         _dateFilter = l10n.chooseDate;
-        _itemsToShow = _itemsPerLoad; // Reset pagination
+        _itemsToShow = _itemsPerLoad; 
       });
     }
   }
@@ -147,13 +149,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
     DateTime? startDate;
     DateTime? endDate;
 
-    // Use localized strings for comparison
+    
     if (_dateFilter == l10n.today) {
-      startDate = DateTime(now.year, now.month, now.day);
+      startDate = DateFormatter.addisDayStart(now);
     } else if (_dateFilter == l10n.last7Days) {
       startDate = now.subtract(const Duration(days: 7));
     } else if (_dateFilter == l10n.thisMonth) {
-      startDate = DateTime(now.year, now.month, 1);
+      startDate = DateFormatter.addisMonthStart(now);
     } else if (_dateFilter == l10n.allTime) {
       startDate = null;
     } else if (_dateFilter == l10n.chooseDate) {
@@ -169,7 +171,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (_dateFilter == l10n.chooseDate &&
           startDate != null &&
           endDate != null) {
-        // For specific date, check if transaction is within that day
+        
         return createdAt
                 .isAfter(startDate.subtract(const Duration(seconds: 1))) &&
             createdAt.isBefore(endDate.add(const Duration(seconds: 1)));
@@ -245,9 +247,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // Header
+          
           CustomHeader(
-            height: 200, // Match WorkerListScreen header height
+            height: 200, 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -265,14 +267,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Ping Admin — viewer only
+                        
                         Consumer<AuthProvider>(
                           builder: (context, auth, _) {
                             if (!auth.isViewer) return const SizedBox.shrink();
                             return IconButton(
                               onPressed: () => showPingAdminSheet(context, UserRole.viewer),
                               icon: const Icon(Icons.send_rounded, color: Colors.white),
-                              tooltip: 'Ping Admin',
+                              tooltip: AppLocalizations.of(context)?.pingAdmin ?? 'Ping Admin',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               style: IconButton.styleFrom(
@@ -285,32 +287,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           const SizedBox(width: 12),
                         IconButton(
                           onPressed: () async {
-                        if (entries.isEmpty) {
-                          AppToast.show(
-                              AppLocalizations.of(context)!.noDataToExport);
-                          return;
-                        }
+                            if (entries.isEmpty) {
+                              AppToast.show(
+                                  AppLocalizations.of(context)!.noDataToExport);
+                              return;
+                            }
 
-                        try {
-                          AppToast.show(
-                              AppLocalizations.of(context)!.preparingPdfReport);
+                            final l10n = AppLocalizations.of(context)!;
+                            final errorMsg = l10n.errorGeneratingReport;
+                            try {
+                              AppToast.show(
+                                  l10n.preparingPdfReport);
 
-                          await ReportService().generateTransactionReport(
-                            _transactionsFrom(entries),
-                            _incomeFrom(entries),
-                            _expensesFrom(entries),
-                            _dateFilter!,
-                            _typeFilter!,
-                          );
-                        } catch (e, stackTrace) {
-                          print('Error generating PDF report: $e');
-                          print(stackTrace);
-                          if (mounted) {
-                            AppToast.show(
-                                '${AppLocalizations.of(context)!.errorGeneratingReport}: $e');
-                          }
-                        }
-                      },
+                              await ReportService().generateTransactionReport(
+                                _transactionsFrom(entries),
+                                _incomeFrom(entries),
+                                _expensesFrom(entries),
+                                _dateFilter!,
+                                _typeFilter!,
+                              );
+                            } catch (e, stackTrace) {
+                              debugPrint('Error generating PDF report: $e');
+                              debugPrint('$stackTrace');
+                              if (mounted) {
+                                AppToast.show(
+                                    '$errorMsg: $e');
+                              }
+                            }
+                          },
                       icon:
                           const Icon(Icons.picture_as_pdf, color: Colors.white),
                       padding: EdgeInsets.zero,
@@ -325,7 +329,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Filters matching Search Box style
+                
                 Row(
                   children: [
                     Expanded(
@@ -363,20 +367,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
 
-          // Inline offline notice between header and summary cards.
+          
           const OfflineIndicator(),
 
-          // Summary Cards
+          
           Expanded(
             child: RefreshIndicator(
               color: AppColors.primary,
               onRefresh: () async {
-                Provider.of<TransactionProvider>(context, listen: false)
-                    .loadAllTransactions();
-                await Provider.of<IncomeProvider>(context, listen: false)
-                    .loadFullRecords();
-                await Provider.of<ExpenseProvider>(context, listen: false)
-                    .loadFullRecords();
+                final txnProvider = Provider.of<TransactionProvider>(context, listen: false);
+                final incomeProvider = Provider.of<IncomeProvider>(context, listen: false);
+                final expenseProvider = Provider.of<ExpenseProvider>(context, listen: false);
+                txnProvider.loadAllTransactions();
+                await incomeProvider.loadFullRecords();
+                if (!mounted) return;
+                await expenseProvider.loadFullRecords();
                 await Future.delayed(const Duration(milliseconds: 500));
               },
               child: SingleChildScrollView(
@@ -384,19 +389,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Quick Stats Row
+                    
                     _buildQuickStats(_transactionsFrom(entries)),
 
                     const SizedBox(height: 24),
 
-                    // Coffee Purchase Summary by Type
+                    
                     if (_typeFilter == l10n.all ||
                         _typeFilter == l10n.coffeePurchase)
                       _buildCoffeeSummary(_transactionsFrom(entries)),
 
                     const SizedBox(height: 24),
 
-                    // Transaction List
+                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -422,7 +427,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     const EdgeInsets.symmetric(horizontal: 8),
                                 decoration: BoxDecoration(
                                   color: _showCashFlow
-                                      ? AppColors.primary.withOpacity(0.15)
+                                      ? AppColors.primary.withValues(alpha: 0.15)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -472,7 +477,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Column(
                         children: [
                           ..._buildReportItems(entries),
-                          // Load More button
+                          
                           if (entries.length > _itemsToShow)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -486,7 +491,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   foregroundColor: AppColors.primary,
                                   side: BorderSide(
                                       color:
-                                          AppColors.primary.withOpacity(0.5)),
+                                          AppColors.primary.withValues(alpha: 0.5)),
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 24, vertical: 12),
                                   shape: RoundedRectangleBorder(
@@ -538,7 +543,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -551,7 +556,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                DateFormat('MMM d, yyyy').format(_selectedDate!),
+                DateFormatter.formatDate(_selectedDate!),
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark ? Colors.white : Colors.black87,
@@ -565,7 +570,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 setState(() {
                   _selectedDate = null;
                   _dateFilter =
-                      'Last 7 Days'; // Keep default key for now to avoid breaking too much logic one shot
+                      'Last 7 Days'; 
                   _itemsToShow = _itemsPerLoad;
                 });
               },
@@ -587,61 +592,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     required Function(String?) onChanged,
     required IconData icon,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: value,
-                isDense: true,
-                isExpanded: true,
-                icon: Icon(Icons.arrow_drop_down,
-                    color: isDark
-                        ? AppColors.textMutedDark
-                        : AppColors.textMutedLight),
-                dropdownColor: theme.cardColor,
-                borderRadius: BorderRadius.circular(12),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.w500,
-                ),
-                items: items.map((String item) {
-                  return DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(
-                      item,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return StyledDropdown<String>(
+      values: items,
+      value: items.contains(value) ? value : null,
+      label: (s) => s,
+      leading: icon,
+      onChanged: onChanged,
     );
   }
 
@@ -736,7 +692,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         amountColor = Colors.orange;
         amount = '${l10n?.currency ?? 'ETB'} ${t.amount.formatted}';
         if (t.coffeeWeight != null) {
-          weightLabel = '${t.coffeeWeight!.formatted} ${l10n?.kg ?? 'kg'}'
+          weightLabel =
+              '${NumberFormatter.formatWeightAuto(t.coffeeWeight!, kgUnit: l10n?.kg ?? 'Kg', tonUnit: l10n?.ton ?? 'Ton')}'
               ' • '
               '${l10n?.currency ?? 'ETB'} ${(t.pricePerKg ?? 0).formatted}';
         }
@@ -797,7 +754,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -825,12 +782,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '${DateFormat('MMM d, h:mm a').format(entry.createdAt)}'
-                    '${subtitleOverride ?? ''}',
-                    style: TextStyle(fontSize: 12, color: mutedColor),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Text(
+                        DateFormatter.formatDateTime(entry.createdAt),
+                        style: TextStyle(fontSize: 12, color: mutedColor),
+                      ),
+                      if (subtitleOverride != null &&
+                          Debt.cleanNotes(note).isNotEmpty)
+                        Flexible(
+                          child: Text(
+                            ' · ${Debt.cleanNotes(note)}',
+                            style: TextStyle(
+                                fontSize: 12, color: mutedColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -839,13 +808,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  amount,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: amountColor,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (Debt.debtTagAmount(note) != null) ...[
+                      DebtTagChip(
+                        transactionId:
+                            entry.payload is MoneyTransaction
+                                ? (entry.payload as MoneyTransaction).id
+                                : null,
+                        fontSize: 10,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: amountColor,
+                      ),
+                    ),
+                  ],
                 ),
                 if (weightLabel != null)
                   Text(
@@ -856,7 +840,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      note,
+                      Debt.cleanNotes(note),
                       style: TextStyle(fontSize: 10, color: mutedColor),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1019,7 +1003,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Data rows
+          
           ...rows.map((e) {
             final flow = flowOf(e);
             final color = flowColor(e);
@@ -1060,7 +1044,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          DateFormat('MMM d, h:mm a').format(e.createdAt),
+                          DateFormatter.formatDateTime(e.createdAt),
                           style: TextStyle(fontSize: 11, color: mutedColor),
                         ),
                       ],
@@ -1070,18 +1054,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          amount,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: color,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            amount,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: color,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
                         if (note != null && note.isNotEmpty)
                           Text(
-                            note,
+                            Debt.cleanNotes(note),
                             style: TextStyle(fontSize: 10, color: mutedColor),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1100,7 +1089,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
             const SizedBox(height: 4),
 
-            // Net flow row
+            
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
@@ -1139,22 +1128,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  /// Build quick stats row (top buyer, avg price, commission)
+  
   Widget _buildQuickStats(List<MoneyTransaction> transactions) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Get purchase transactions only
+    
     final purchases =
         transactions.where((t) => t.type.toLowerCase() == 'purchase').toList();
 
-    // Calculate stats
+    
     String topBuyer = '-';
     double avgPrice = 0;
     double totalCommission = 0;
 
     if (purchases.isNotEmpty) {
-      // Find top buyer (by total amount)
+      
       Map<String, double> buyerTotals = {};
       for (var t in purchases) {
         buyerTotals[t.workerName] = (buyerTotals[t.workerName] ?? 0) + t.amount;
@@ -1162,7 +1151,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       topBuyer =
           buyerTotals.entries.reduce((a, b) => a.value > b.value ? a : b).key;
 
-      // Calculate average price per kg
+      
       double totalWeight = 0;
       double totalValue = 0;
       for (var t in purchases) {
@@ -1175,7 +1164,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         avgPrice = totalValue / totalWeight;
       }
 
-      // Calculate total commission
+      
       for (var t in purchases) {
         totalCommission += t.commissionAmount ?? 0;
       }
@@ -1186,7 +1175,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Expanded(
           child: _buildQuickStatCard(
             icon: Icons.emoji_events,
-            label: 'Top Buyer',
+            label: AppLocalizations.of(context)?.topBuyer ?? 'Top Buyer',
             value: topBuyer.length > 10
                 ? '${topBuyer.substring(0, 10)}...'
                 : topBuyer,
@@ -1198,8 +1187,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Expanded(
           child: _buildQuickStatCard(
             icon: Icons.trending_up,
-            label: 'Avg Price',
-            value: 'ETB ${avgPrice.formatted}/Kg',
+            label: AppLocalizations.of(context)?.avgPrice ?? 'Avg Price',
+            value: '${AppLocalizations.of(context)?.currency ?? 'ETB'} ${avgPrice.formatted}/${AppLocalizations.of(context)?.kg ?? 'Kg'}',
             color: AppColors.primary,
             isDark: isDark,
           ),
@@ -1208,8 +1197,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Expanded(
           child: _buildQuickStatCard(
             icon: Icons.paid,
-            label: 'Commission',
-            value: 'ETB ${totalCommission.formatted}',
+            label: AppLocalizations.of(context)?.commission ?? 'Commission',
+            value: '${AppLocalizations.of(context)?.currency ?? 'ETB'} ${totalCommission.formatted}',
             color: AppColors.primary,
             isDark: isDark,
           ),
@@ -1259,18 +1248,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  /// Build coffee purchase summary by type
+  
   Widget _buildCoffeeSummary(List<MoneyTransaction> transactions) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Get purchase transactions only
+    
     final purchases =
         transactions.where((t) => t.type.toLowerCase() == 'purchase').toList();
 
     if (purchases.isEmpty) return const SizedBox.shrink();
 
-    // Group by coffee type
+    
     Map<String, Map<String, double>> coffeeData = {};
 
     for (var t in purchases) {
@@ -1301,7 +1290,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Coffee Purchases by Type',
+                AppLocalizations.of(context)?.purchasesByType ??
+                    'Coffee Purchases by Type',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1312,7 +1302,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Data rows
+          
           ...coffeeData.entries.map((entry) {
             final type = entry.key;
             final data = entry.value;
@@ -1337,14 +1327,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(type, style: _valueStyle(isDark)),
+                        Text(_coffeeTypeLabel(type),
+                            style: _valueStyle(isDark)),
                       ],
                     ),
                   ),
                   Expanded(
                     flex: 1,
                     child: Text(
-                      '${qty.formatted} Kg',
+                      NumberFormatter.formatWeightAuto(qty,
+                          kgUnit:
+                              AppLocalizations.of(context)?.kg ?? 'Kg',
+                          tonUnit:
+                              AppLocalizations.of(context)?.ton ?? 'Ton'),
                       style: _valueStyle(isDark),
                       textAlign: TextAlign.right,
                     ),
@@ -1352,7 +1347,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'ETB ${avgPrice.formatted}',
+                      '${AppLocalizations.of(context)?.currency ?? 'ETB'} ${avgPrice.formatted}',
                       style: _valueStyle(isDark),
                       textAlign: TextAlign.right,
                     ),
@@ -1360,7 +1355,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'ETB ${total.formatted}',
+                      '${AppLocalizations.of(context)?.currency ?? 'ETB'} ${total.formatted}',
                       style: _valueStyle(isDark)
                           .copyWith(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.right,
@@ -1380,6 +1375,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
       fontSize: 13,
       color: isDark ? Colors.white : Colors.black87,
     );
+  }
+
+  String _coffeeTypeLabel(String type) {
+    final l10n = AppLocalizations.of(context);
+    switch (type.toLowerCase()) {
+      case 'jenfel':
+        return l10n?.jenfel ?? 'Dried';
+      case 'yetatebe':
+        return l10n?.yetatebe ?? 'Washed';
+      case 'special':
+        return l10n?.special ?? 'Special';
+      default:
+        return type;
+    }
   }
 
   Color _getCoffeeTypeColor(String type) {

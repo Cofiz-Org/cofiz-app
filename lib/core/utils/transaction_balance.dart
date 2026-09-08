@@ -25,10 +25,9 @@ Map<String, dynamic> transactionBalanceUpdates(
         'totalReturned': FieldValue.increment(t.amount * mult),
       };
     case 'purchase':
-      final covered = t.amount - (t.forgivenAmount ?? 0.0);
       final updates = <String, dynamic>{
-        'currentBalance': FieldValue.increment(-covered * mult),
-        'totalCoffeePurchased': FieldValue.increment(covered * mult),
+        'currentBalance': FieldValue.increment(-t.amount * mult),
+        'totalCoffeePurchased': FieldValue.increment(t.amount * mult),
       };
       if (t.commissionAmount != null && t.commissionAmount! > 0) {
         updates['totalCommissionEarned'] =

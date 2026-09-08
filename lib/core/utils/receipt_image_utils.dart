@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 class ReceiptImageUtils {
@@ -35,7 +35,7 @@ class ReceiptImageUtils {
         img.encodeJpg(image, quality: _jpegQuality),
       );
     } catch (e) {
-      print('Error compressing receipt image: $e');
+      debugPrint('Error compressing receipt image: $e');
       return null;
     }
   }

@@ -26,6 +26,31 @@ void main() {
       expect(back.id, 'd1');
     });
 
+    test('source defaults to purchase and round-trips', () {
+      final d = Debt(
+        id: 'd3',
+        collectorId: Debt.companyCollectorId,
+        collectorName: Debt.companyCollectorName,
+        source: 'expense',
+        purchaseId: 'exp-1',
+        totalAmount: 800,
+        coveredAmount: 300,
+        forgivenAmount: 500,
+        status: DebtStatus.open,
+        createdAt: DateTime(2026, 8, 29),
+        createdBy: 'u1',
+      );
+      final back = Debt.fromMap(d.toFirestore(), id: 'd3');
+      expect(back.source, 'expense');
+      expect(back.collectorId, Debt.companyCollectorId);
+      expect(back.purchaseId, 'exp-1');
+      final legacy = Debt.fromMap({
+        'collectorId': 'c9',
+        'forgivenAmount': 10,
+      });
+      expect(legacy.source, 'purchase');
+    });
+
     test('paidAt survives round-trip', () {
       final now = DateTime(2026, 8, 30);
       final d = Debt(

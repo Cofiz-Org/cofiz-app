@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/audit_provider.dart';
@@ -21,9 +22,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController = TextEditingController(text: user?.displayName ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+    _nameController = TextEditingController(
+        text: auth.appUser?.displayName ?? user?.displayName ?? '');
+    _emailController = TextEditingController(
+        text: auth.appUser?.email ?? user?.email ?? '');
   }
 
   @override
@@ -36,18 +40,27 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final email = _emailController.text.trim();
+      final currentEmail = authProvider.appUser?.email ?? '';
+      final newEmail = email.isNotEmpty && email != currentEmail ? email : null;
       final success = await authProvider.updateUserProfile(
-          displayName: _nameController.text.trim());
+          displayName: _nameController.text.trim(),
+          email: newEmail);
 
       if (mounted) {
         if (success) {
           final auditProvider =
               Provider.of<AuditProvider>(context, listen: false);
+          final changes = <String, dynamic>{
+            'displayName': _nameController.text.trim(),
+          };
+          if (newEmail != null) changes['email'] = newEmail;
           await auditProvider.logUserUpdated(
             userId: authProvider.user?.uid ?? 'unknown',
             userName: authProvider.appUser?.displayName ?? '',
-            changes: {'displayName': _nameController.text.trim()},
+            changes: changes,
           );
+          if (!mounted) return;
           AppToast.show(
             AppLocalizations.of(context)!.profileUpdatedSuccessfully,
             success: true,
@@ -72,12 +85,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.editProfile,
-            style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
-        backgroundColor: Colors.transparent,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: AppColors.primary,
         elevation: 0,
-        iconTheme: IconThemeData(
-            color: theme.iconTheme.color ??
-                (isDark ? Colors.white : Colors.black)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -88,39 +99,44 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          size: 50,
-                          color: AppColors.primary,
-                        ),
+                  child: Builder(builder: (context) {
+                    final photoUrl =
+                        authProvider.appUser?.photoUrl;
+                    final hasPhoto =
+                        photoUrl != null && photoUrl.isNotEmpty;
+                    return Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      child: hasPhoto
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: photoUrl,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: AppColors.primary,
+                                ),
+                                errorWidget: (_, __, ___) => const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 50,
+                              color: AppColors.primary,
+                            ),
+                    );
+                  }),
                 ),
                 const SizedBox(height: 32),
                 Text(
@@ -173,39 +189,34 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _emailController,
-                  readOnly: true,
-                  style: TextStyle(
-                      color:
-                          theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+                  keyboardType: TextInputType.emailAddress,
+                  style: TextStyle(color: theme.textTheme.bodyMedium?.color),
                   decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.enterYourEmail,
+                    hintStyle: TextStyle(color: theme.hintColor),
                     filled: true,
-                    fillColor:
-                        isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                    fillColor: isDark ? theme.cardColor : Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Colors.transparent),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.transparent),
+                      borderSide: BorderSide(
+                          color: isDark ? Colors.white10 : Colors.transparent),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 4),
-                  child: Text(
-                    AppLocalizations.of(context)!.emailCannotBeChanged,
-                    style: TextStyle(
-                      color: isDark
-                          ? Colors.grey.shade400
-                          : AppColors.textMutedLight,
-                      fontSize: 12,
-                    ),
-                  ),
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty &&
+                        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return AppLocalizations.of(context)!.pleaseEnterValidEmail;
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 40),
                 SizedBox(

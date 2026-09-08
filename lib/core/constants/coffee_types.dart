@@ -6,9 +6,9 @@ enum CoffeeType {
   String get displayName {
     switch (this) {
       case CoffeeType.jenfel:
-        return 'Jenfel';
+        return 'Dried';
       case CoffeeType.yetatebe:
-        return 'Yetatebe';
+        return 'Washed';
       case CoffeeType.special:
         return 'Special';
     }

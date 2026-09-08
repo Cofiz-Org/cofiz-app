@@ -89,7 +89,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('$_cachedAppUserKey:${user.uid}',
-          '${user.role.name}|${user.workerId ?? ''}|${user.displayName}|${user.email}');
+          '${user.role.name}|${user.workerId ?? ''}|${user.displayName}|${user.email}|${user.phone ?? ''}');
     } catch (_) {}
   }
 
@@ -105,6 +105,7 @@ class AuthProvider with ChangeNotifier {
       return AppUser(
         uid: uid,
         email: parts[3],
+        phone: parts.length >= 5 && parts[4].isNotEmpty ? parts[4] : null,
         displayName: parts[2],
         role: role,
         workerId: parts[1].isEmpty ? null : parts[1],
@@ -210,13 +211,12 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> signOut() async {
     try {
-      print('DEBUG: Starting sign out...');
+      debugPrint('DEBUG: Starting sign out...');
       _status = AuthStatus.loading;
       notifyListeners();
 
-      // Remove FCM token before signing out
       if (_user != null) {
-        await FCMService().removeTokenForUser(_user!.uid);
+        unawaited(FCMService().removeTokenForUser(_user!.uid));
       }
 
       await _authService.signOut();
@@ -236,7 +236,7 @@ class AuthProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('DEBUG: Sign out ERROR: $e');
+      debugPrint('DEBUG: Sign out ERROR: $e');
       // Even on error, try to clear state
       _user = null;
       _appUser = null;
@@ -269,19 +269,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> markEmailVerified() async {
     final uid = _user?.uid;
     if (_appUser != null) {
-      _appUser = AppUser(
-        uid: _appUser!.uid,
-        email: _appUser!.email,
-        displayName: _appUser!.displayName,
-        role: _appUser!.role,
-        photoUrl: _appUser!.photoUrl,
-        createdAt: _appUser!.createdAt,
-        lastLoginAt: _appUser!.lastLoginAt,
-        isActive: _appUser!.isActive,
-        emailVerified: true,
-        createdBy: _appUser!.createdBy,
-        workerId: _appUser!.workerId,
-      );
+      _appUser = _appUser!.copyWith(emailVerified: true);
     }
     if (uid != null) {
       try {
@@ -330,7 +318,7 @@ class AuthProvider with ChangeNotifier {
 
   /// Update user profile
   Future<bool> updateUserProfile(
-      {String? displayName, String? photoUrl}) async {
+      {String? displayName, String? photoUrl, String? email}) async {
     try {
       _status = AuthStatus.loading;
       notifyListeners();
@@ -338,21 +326,29 @@ class AuthProvider with ChangeNotifier {
       await _authService.updateProfile(
           displayName: displayName, photoUrl: photoUrl);
 
-      // Refresh user data
       _user = _authService.currentUser;
 
-      // Persist to Firestore so appUser reflects the change app-wide
       final uid = _user?.uid;
       if (uid != null) {
         final updates = <String, dynamic>{};
         if (displayName != null) updates['displayName'] = displayName;
         if (photoUrl != null) updates['photoUrl'] = photoUrl;
+        final emailChanged =
+            email != null && email != _appUser?.email;
+        if (email != null) {
+          updates['email'] = email;
+          if (emailChanged) updates['emailVerified'] = false;
+        }
         if (updates.isNotEmpty) {
           await _firestore.collection('users').doc(uid).update(updates);
         }
         if (_appUser != null) {
-          _appUser =
-              _appUser!.copyWith(displayName: displayName, photoUrl: photoUrl);
+          _appUser = _appUser!.copyWith(
+            displayName: displayName,
+            photoUrl: photoUrl,
+            email: email,
+            emailVerified: emailChanged ? false : null,
+          );
         }
       }
 

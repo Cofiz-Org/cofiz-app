@@ -10,7 +10,7 @@ import '../../../_support/mock_http_client.dart';
 void main() {
   testWidgets('OtpVerifyScreen shows 6 inputs', (tester) async {
     final mock = MockHttpClient();
-    mock.onPost('/auth/whatsapp/start', (_) => {'verificationId': 'v1', 'expiresInSeconds': 300});
+    mock.onPost('/auth/whatsapp/start', (_) => {'challengeId': 'v1', 'expiresIn': 300});
     final p = PhoneOtpAuthProvider(
       backend: AuthBackend(baseUrl: 'https://x', client: mock),
     );
@@ -27,5 +27,7 @@ void main() {
     );
     expect(find.byKey(const Key('codeDigit0')), findsOneWidget);
     expect(find.byKey(const Key('codeDigit5')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 61));
   });
 }

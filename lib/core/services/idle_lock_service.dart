@@ -35,12 +35,16 @@ class IdleLockService with WidgetsBindingObserver {
   }
 
   void bump() {
-    // Don't arm timer if locked or awaiting setup, and respect cooldown.
+    // Don't arm timer before lock state finished cold-start init, when not
+    // unlocked, while force-sign-out is pending, or during cooldown.
+    if (!lockState.isInitialized) return;
     if (lockState.state != PinLockState.unlocked) return;
+    if (lockState.shouldForceSignOut) return;
     if (lockState.isInCooldown) return;
     _timer?.cancel();
     _timer = Timer(duration, () {
-      if (lockState.state == PinLockState.unlocked) {
+      if (lockState.state == PinLockState.unlocked &&
+          !lockState.shouldForceSignOut) {
         lockState.lock();
       }
     });
@@ -50,13 +54,20 @@ class IdleLockService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      if (lockState.state == PinLockState.unlocked) {
-        lockState.lock();
-      }
-      _timer?.cancel();
-    } else if (state == AppLifecycleState.resumed) {
-      bump();
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _timer?.cancel();
+        if (lockState.isInitialized &&
+            lockState.state == PinLockState.unlocked) {
+          lockState.markBackgrounded();
+        }
+        break;
+      case AppLifecycleState.resumed:
+        bump();
+        break;
     }
   }
 }

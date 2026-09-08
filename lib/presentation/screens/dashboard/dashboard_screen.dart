@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/worker_provider.dart';
 import '../../../core/providers/transaction_provider.dart';
@@ -9,6 +8,7 @@ import '../../../core/providers/expense_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/models/worker_model.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../../main.dart';
 import '../../dialogs/ping_dialog.dart';
@@ -18,7 +18,7 @@ import '../notifications/notifications_screen.dart';
 import '../income/company_income_screen.dart';
 import '../expense/expenses_screen.dart';
 import '../transaction/all_debts_screen.dart';
-import '../../../core/services/debt_service.dart';
+import '../../../core/providers/debt_provider.dart';
 import '../transaction/transfer_dialog.dart';
 import '../../widgets/custom_header.dart';
 import '../../../l10n/app_localizations.dart';
@@ -59,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Robust Localization: Allow null, use fallbacks
+    
     final AppLocalizations? localizations = AppLocalizations.of(context);
 
     return Scaffold(
@@ -97,7 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     Row(
                       children: [
-                        // Admin Ping All Button
+                        
                         if (authProvider.isAdmin)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -139,22 +139,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
+                      DateFormatter.formatFull(DateTime.now()),
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    // Pending/failed sync counts - right end of the date row.
+                    
                     const SyncOutboxBanner(),
                   ],
                 ),
               ],
             ),
           ),
-          // Inline offline notice: sits between the warm-orange header and
-          // the first cards, no background.
+          
+          
           const OfflineIndicator(),
           Expanded(
             child: RefreshIndicator(
@@ -169,7 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Compact Stats (Moved Up)
+                    
                     Container(
                       padding: const EdgeInsets.symmetric(
                           vertical: 20, horizontal: 12),
@@ -179,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         boxShadow: [
                           BoxShadow(
                             color:
-                                Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                                Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -191,8 +191,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _buildCompactStat(
                             context,
                             Icons.account_balance,
-                            '${localizations?.currency ?? 'ETB'} ${incomeProvider.totalIncome.formattedCompact}',
-                            localizations?.investment ?? 'Investment',
+                            '${localizations?.currency ?? 'ETB'} ${incomeProvider.totalIncome.compactFor(Localizations.localeOf(context).languageCode)}',
+                            localizations?.companyIncome ?? 'Income',
                             AppColors.primary,
                             onTap: () {
                               Navigator.push(
@@ -204,19 +204,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             },
                           ),
                           _buildContainerDivider(isDark),
-                          _buildCompactStat(
-                            context,
-                            Icons.people,
-                            '${workerProvider.activeToday}',
-                            localizations?.collectors ?? 'Collectors',
-                            AppColors.primary,
-                            onTap: () => MainLayout.navigateTo(1),
+                          Builder(
+                            builder: (context) {
+                              final v = context.watch<DebtProvider>().openTotal;
+                              return _buildCompactStat(
+                                context,
+                                Icons.money_off_outlined,
+                                '${localizations?.currency ?? 'ETB'} ${v.compactFor(Localizations.localeOf(context).languageCode)}',
+                                localizations?.debtLabel ?? 'Debt',
+                                AppColors.primary,
+                                onTap: () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AllDebtsScreen()));
+                                },
+                              );
+                            },
                           ),
                           _buildContainerDivider(isDark),
                           _buildCompactStat(
                             context,
                             Icons.receipt_long,
-                            '${localizations?.currency ?? 'ETB'} ${expenseProvider.totalExpenses.formattedCompact}',
+                            '${localizations?.currency ?? 'ETB'} ${expenseProvider.totalExpenses.compactFor(Localizations.localeOf(context).languageCode)}',
                             localizations?.expenses ?? 'Expenses',
                             AppColors.primary,
                             onTap: () {
@@ -228,29 +235,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               );
                             },
                           ),
-                          _buildContainerDivider(isDark),
-                          FutureBuilder<double>(
-                            future: DebtService().getOpenDebtsTotal(),
-                            builder: (context, snap) {
-                              final v = snap.data ?? 0;
-                              return _buildCompactStat(
-                                context,
-                                Icons.warning_amber_rounded,
-                                '${localizations?.currency ?? 'ETB'} ${v.toStringAsFixed(0)}',
-                                'Debt',
-                                AppColors.error,
-                                onTap: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AllDebtsScreen()));
-                                },
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Today's Overview Card (Moved Down)
+                    
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -259,13 +249,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           end: Alignment.bottomRight,
                           colors: [
                             AppColors.primary,
-                            AppColors.primary.withOpacity(0.8),
+                            AppColors.primary.withValues(alpha: 0.8),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
+                            color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -304,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   color: Colors.white,
                                   size: 20,
                                 ),
-                                tooltip: 'Toggle Today / Total',
+                                tooltip: localizations?.toggleTodayTotal ?? 'Toggle Today / Total',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                               ),
@@ -363,15 +353,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   fontSize: 14,
                                 ),
                               ),
-                              Text(
-                                _showTotalActivity
-                                    ? '${localizations?.currency ?? "ETB"} ${_totalNet(transactionProvider, incomeProvider, expenseProvider).formatted}'
-                                    : '${localizations?.currency ?? "ETB"} ${_todayNet(transactionProvider, incomeProvider, expenseProvider).formatted}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _showTotalActivity
+                                        ? '${localizations?.currency ?? "ETB"} ${_totalNet(transactionProvider, incomeProvider, expenseProvider).formatted}'
+                                        : '${localizations?.currency ?? "ETB"} ${_todayNet(transactionProvider, incomeProvider, expenseProvider).formatted}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (_showTotalActivity &&
+                                      _totalNet(transactionProvider, incomeProvider, expenseProvider) <= 0)
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 8),
+                                      child: Icon(
+                                        Icons.money_off_outlined,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -385,7 +390,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Latest Transactions Section
+                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -441,7 +446,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -499,7 +504,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: warmOrange.withOpacity(
+          color: warmOrange.withValues(alpha: 
               Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -618,8 +623,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   double _totalNet(
       TransactionProvider tp, IncomeProvider ip, ExpenseProvider ep) {
-    final net = _totalMoneyIn(tp, ip, ep) - _totalMoneyOut(tp, ep);
-    return net < 0 ? 0 : net;
+    return _totalMoneyIn(tp, ip, ep) - _totalMoneyOut(tp, ep);
   }
 
   Widget _buildTappableStat({
@@ -636,7 +640,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFFF0A04B).withOpacity(isDark ? 0.25 : 0.15)
+              ? const Color(0xFFF0A04B).withValues(alpha: isDark ? 0.25 : 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(

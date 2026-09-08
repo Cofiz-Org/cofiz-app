@@ -23,7 +23,7 @@ class CustomBottomNav extends StatelessWidget {
         border: Border(
           top: BorderSide(
             color:
-                isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+                isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200,
           ),
         ),
       ),

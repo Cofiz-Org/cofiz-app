@@ -4,10 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/income_record_model.dart';
+import '../utils/date_formatter.dart';
 import 'offline_cache_service.dart';
 import 'offline_sync_service.dart';
 
-/// A single page of income records from a cursor-paginated query.
+
 class IncomePage {
   final List<IncomeRecord> items;
   final DocumentSnapshot<Map<String, dynamic>>? lastDoc;
@@ -62,7 +63,7 @@ class IncomeService {
             .toList());
   }
 
-  /// Bounded live stream of the newest income records (first page only).
+  
   Stream<List<IncomeRecord>> getIncomePageStream({int limit = 20}) {
     return _firestore
         .collection(_collectionName)
@@ -74,7 +75,7 @@ class IncomeService {
             .toList());
   }
 
-  /// Fetch a page of income records (newest first) via cursor.
+  
   Future<IncomePage> getIncomePage({
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
     int pageSize = 20,
@@ -97,12 +98,12 @@ class IncomeService {
         hasMore: snapshot.docs.length == pageSize,
       );
     } catch (e) {
-      print('Error fetching income page: $e');
+      debugPrint('Error fetching income page: $e');
       return IncomePage(items: const [], lastDoc: null, hasMore: false);
     }
   }
 
-  /// Bounded live stream of the newest income records for a viewer.
+  
   Stream<List<IncomeRecord>> getIncomeForViewerPageStream(String viewerId,
       {int limit = 20}) {
     return _firestore
@@ -116,7 +117,7 @@ class IncomeService {
             .toList());
   }
 
-  /// Fetch a page of income records for a viewer (newest first) via cursor.
+  
   Future<IncomePage> getIncomeForViewerPage(
     String viewerId, {
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
@@ -141,12 +142,12 @@ class IncomeService {
         hasMore: snapshot.docs.length == pageSize,
       );
     } catch (e) {
-      print('Error fetching viewer income page: $e');
+      debugPrint('Error fetching viewer income page: $e');
       return IncomePage(items: const [], lastDoc: null, hasMore: false);
     }
   }
 
-  /// Fetch all income records for a specific calendar day (newest first).
+  
   Future<List<IncomeRecord>> getIncomeForDay(DateTime day) async {
     final startOfDay = DateTime(day.year, day.month, day.day);
     final startTimestamp = startOfDay.millisecondsSinceEpoch;
@@ -163,7 +164,7 @@ class IncomeService {
           .map((doc) => IncomeRecord.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (_) {
-      // Offline: serve the cached records for that day, if any.
+      
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
       final cached = OfflineCacheService().getCachedIncome() ?? const [];
@@ -175,7 +176,7 @@ class IncomeService {
     }
   }
 
-  /// Fetch all income records (newest first) - for reports/export.
+  
   Future<List<IncomeRecord>> getAllIncome() async {
     try {
       final snap = await _firestore
@@ -186,14 +187,14 @@ class IncomeService {
           .map((doc) => IncomeRecord.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
-      // Offline: fall back to the Hive cache instead of an empty set that
-      // would wipe reports/export data.
+      
+      
       return OfflineCacheService().getCachedIncome() ?? const [];
     }
   }
 
-  /// Server-side total income sum.
-  /// Returns null if the query fails (e.g. index not ready/offline).
+  
+  
   Future<double?> getIncomeTotal({String? viewerId}) async {
     try {
       Query<Map<String, dynamic>> query =
@@ -204,13 +205,13 @@ class IncomeService {
       final snapshot = await query.aggregate(sum('amount')).get();
       return snapshot.getSum('amount') ?? 0.0;
     } catch (e) {
-      print('Error fetching income total: $e');
+      debugPrint('Error fetching income total: $e');
       return null;
     }
   }
 
-  /// Server-side total income sum filtered by kind.
-  /// Returns null if the query fails.
+  
+  
   Future<double?> getIncomeTotalByKind(IncomeKind kind,
       {String? viewerId}) async {
     try {
@@ -223,17 +224,16 @@ class IncomeService {
       final snapshot = await query.aggregate(sum('amount')).get();
       return snapshot.getSum('amount') ?? 0.0;
     } catch (e) {
-      print('Error fetching income kind total: $e');
+      debugPrint('Error fetching income kind total: $e');
       return null;
     }
   }
 
-  /// Server-side total income sum for today.
-  /// Returns null if the query fails.
+  
+  
   Future<double?> getIncomeTodayTotal({String? viewerId}) async {
     try {
-      final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day);
+      final start = DateFormatter.addisDayStart();
       final end = start.add(const Duration(days: 1));
       Query<Map<String, dynamic>> query = _firestore
           .collection(_collectionName)
@@ -246,18 +246,17 @@ class IncomeService {
       final snapshot = await query.aggregate(sum('amount')).get();
       return snapshot.getSum('amount') ?? 0.0;
     } catch (e) {
-      print('Error fetching today income total: $e');
+      debugPrint('Error fetching today income total: $e');
       return null;
     }
   }
 
-  /// Server-side today total sum by kind.
-  /// Returns null if the query fails.
+  
+  
   Future<double?> getIncomeTodayTotalByKind(IncomeKind kind,
       {String? viewerId}) async {
     try {
-      final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day);
+      final start = DateFormatter.addisDayStart();
       final end = start.add(const Duration(days: 1));
       Query<Map<String, dynamic>> query = _firestore
           .collection(_collectionName)
@@ -271,13 +270,13 @@ class IncomeService {
       final snapshot = await query.aggregate(sum('amount')).get();
       return snapshot.getSum('amount') ?? 0.0;
     } catch (e) {
-      print('Error fetching today income kind total: $e');
+      debugPrint('Error fetching today income kind total: $e');
       return null;
     }
   }
 
-  /// Server-side count of income records.
-  /// Returns null if the query fails.
+  
+  
   Future<int?> getIncomeCount({String? viewerId}) async {
     try {
       Query<Map<String, dynamic>> query =
@@ -288,7 +287,7 @@ class IncomeService {
       final snapshot = await query.count().get();
       return snapshot.count ?? 0;
     } catch (e) {
-      print('Error fetching income count: $e');
+      debugPrint('Error fetching income count: $e');
       return null;
     }
   }
@@ -347,12 +346,11 @@ class IncomeService {
   Future<void> initializeDefaultSaleCategories() async {
     try {
       final snap = await _categoriesRef.get();
-      final categories = (snap.data()?['categories'] as List?)?.cast<String>();
-      if (categories == null || categories.isEmpty) {
-        await _categoriesRef.set({'categories': defaultSaleCategories});
+      if (!snap.exists || snap.data()?['categories'] == null) {
+        await _categoriesRef.set({'categories': defaultSaleCategories}, SetOptions(merge: true));
       }
     } catch (e) {
-      print('Error initializing sale categories: $e');
+      debugPrint('Error initializing sale categories: $e');
     }
   }
 
@@ -385,12 +383,12 @@ class IncomeService {
     try {
       final current = await getSaleCategories();
       if (current.contains(trimmed)) return true;
-      await _categoriesRef.update({
+      await _categoriesRef.set({
         'categories': FieldValue.arrayUnion([trimmed]),
-      });
+      }, SetOptions(merge: true));
       return true;
     } catch (e) {
-      print('Error adding sale category: $e');
+      debugPrint('Error adding sale category: $e');
       return false;
     }
   }
@@ -398,12 +396,14 @@ class IncomeService {
   Future<bool> removeSaleCategory(String name) async {
     if (defaultSaleCategories.contains(name)) return false;
     try {
+      final snap = await _categoriesRef.get();
+      if (!snap.exists) return false;
       await _categoriesRef.update({
         'categories': FieldValue.arrayRemove([name]),
       });
       return true;
     } catch (e) {
-      print('Error removing sale category: $e');
+      debugPrint('Error removing sale category: $e');
       return false;
     }
   }

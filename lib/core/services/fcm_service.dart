@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/app_navigator.dart';
 import 'notification_service.dart';
 
 /// Background message handler - must be top-level function
@@ -92,22 +94,26 @@ class FCMService {
     }
     _boundUserId = userId;
     try {
-      await requestPermission();
-    } catch (_) {}
-    final token = await _messaging.getToken();
-    if (token == null) {
-      debugPrint('FCM getToken null for $userId');
-      return;
-    }
-    if (_currentToken == token && _lastSaveUserId == userId) {
-      debugPrint('FCM token unchanged for $userId');
+      try {
+        await requestPermission();
+      } catch (_) {}
+      final token = await _messaging.getToken();
+      if (token == null) {
+        debugPrint('FCM getToken null for $userId');
+        return;
+      }
+      if (_currentToken == token && _lastSaveUserId == userId) {
+        debugPrint('FCM token unchanged for $userId');
+        _lastSaveAt = DateTime.now();
+        return;
+      }
+      _currentToken = token;
+      _lastSaveUserId = userId;
       _lastSaveAt = DateTime.now();
-      return;
+      await _persistToken(userId, token);
+    } catch (e) {
+      debugPrint('FCM saveToken failed for $userId (will retry next start): $e');
     }
-    _currentToken = token;
-    _lastSaveUserId = userId;
-    _lastSaveAt = DateTime.now();
-    await _persistToken(userId, token);
   }
 
   Future<void> _persistToken(String userId, String token) async {
@@ -128,10 +134,14 @@ class FCMService {
     _lastSaveUserId = null;
     _lastSaveAt = null;
     try {
-      await _firestore.collection('users').doc(userId).set({
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .set({
         'fcmToken': FieldValue.delete(),
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5));
       debugPrint('FCM token removed for user: $userId');
     } catch (e) {
       debugPrint('Error removing FCM token: $e');
@@ -148,27 +158,35 @@ class FCMService {
     await _persistToken(uid, newToken);
   }
 
-  /// Handle foreground messages - show local notification
+  static Map<String, String> _extrasOf(Map<String, dynamic> data) {
+    final extras = <String, String>{};
+    data.forEach((k, v) {
+      if (k == 'type' || k == 'click_action') return;
+      extras[k.toString()] = v.toString();
+    });
+    return extras;
+  }
+
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('Foreground message received: ${message.notification?.title}');
 
     final notification = message.notification;
     if (notification != null) {
-      // Show local notification using NotificationService
+      final type = message.data['type']?.toString() ?? 'info';
       NotificationService().showNotification(
         id: message.hashCode,
-        title: notification.title ?? 'New Notification',
+        title: 'Cofiz',
         body: notification.body ?? '',
-        payload: message.data['notificationId'],
+        payload: jsonEncode(
+            {'type': type, 'data': _extrasOf(message.data)}),
       );
     }
   }
 
-  /// Handle notification tap
   void _handleNotificationTap(RemoteMessage message) {
     debugPrint('Notification tapped: ${message.data}');
-    // Navigate to notifications screen or specific content
-    // This would typically use a navigation service or global key
+    final type = message.data['type']?.toString() ?? 'info';
+    AppNavigator.openNotificationType(type, _extrasOf(message.data));
   }
 
   /// Dispose resources

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/providers/transaction_provider.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../../core/utils/number_formatter.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -136,7 +136,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                               color: Colors.white,
                               size: 24,
                             ),
-                            tooltip: 'Ping Admin',
+                            tooltip: AppLocalizations.of(context)!.pingAdmin,
                             onPressed: () => showPingAdminSheet(context, UserRole.worker),
                           );
                         },
@@ -166,7 +166,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
               ),
               const SizedBox(height: 12),
               Text(
-                DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
+                DateFormatter.formatFull(DateTime.now()),
                 style: const TextStyle(
                   fontSize: 13,
                   color: Colors.white70,
@@ -190,7 +190,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                       child: WorkerStatCard(
                         label: AppLocalizations.of(context)!.totalDistributed,
                         value:
-                            'ETB ${widget.worker.totalDistributed.formatted}',
+                            '${AppLocalizations.of(context)!.currency} ${widget.worker.totalDistributed.formatted}',
                         icon: Icons.arrow_downward,
                         isDark: widget.isDark,
                       ),
@@ -199,7 +199,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                     Expanded(
                       child: WorkerStatCard(
                         label: AppLocalizations.of(context)!.totalReturned,
-                        value: 'ETB ${widget.worker.totalReturned.formatted}',
+                        value: '${AppLocalizations.of(context)!.currency} ${widget.worker.totalReturned.formatted}',
                         icon: Icons.arrow_upward,
                         isDark: widget.isDark,
                       ),
@@ -215,7 +215,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                       child: WorkerStatCard(
                         label: AppLocalizations.of(context)!.coffeePurchased,
                         value:
-                            'ETB ${widget.worker.totalCoffeePurchased.formatted}',
+                            '${AppLocalizations.of(context)!.currency} ${widget.worker.totalCoffeePurchased.formatted}',
                         icon: Icons.shopping_cart,
                         isDark: widget.isDark,
                       ),
@@ -225,7 +225,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                       child: WorkerStatCard(
                         label: AppLocalizations.of(context)!.commissionEarned,
                         value:
-                            'ETB ${widget.worker.totalCommissionEarned.formatted}',
+                            '${AppLocalizations.of(context)!.currency} ${widget.worker.totalCommissionEarned.formatted}',
                         icon: Icons.paid,
                         isDark: widget.isDark,
                       ),
@@ -242,7 +242,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                     gradient: LinearGradient(
                       colors: [
                         AppColors.primary,
-                        AppColors.primary.withOpacity(0.7)
+                        AppColors.primary.withValues(alpha: 0.7)
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -250,7 +250,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -268,7 +268,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'ETB ${widget.worker.currentBalance.formatted}',
+                        '${AppLocalizations.of(context)!.currency} ${widget.worker.currentBalance.formatted}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 36,
@@ -378,7 +378,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                   boxShadow: [
                     BoxShadow(
                       color:
-                          Colors.black.withOpacity(widget.isDark ? 0.2 : 0.03),
+                          Colors.black.withValues(alpha: widget.isDark ? 0.2 : 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -460,7 +460,7 @@ class _WorkerHomeTabState extends State<WorkerHomeTab> {
                       color: isDark ? Colors.white10 : Colors.grey.shade200),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),

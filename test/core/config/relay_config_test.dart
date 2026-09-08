@@ -14,12 +14,11 @@ void main() {
 
     test('dart-define fallback when Firestore missing', () async {
       final fake = FakeFirebaseFirestore();
-      // No settings/app doc — should keep env fallback (empty in test)
+      // No settings/app doc — keeps compiled-in fallback relay
       await RelayConfig.init(firestore: fake);
       expect(RelayConfig.isInitialized, isTrue);
-      // In test env, dart-define is empty, so isConfigured false
-      expect(RelayConfig.relayUrl, isEmpty);
-      expect(RelayConfig.isConfigured, isFalse);
+      expect(RelayConfig.relayUrl, 'https://cofiz.natanim.dev');
+      expect(RelayConfig.isConfigured, isTrue);
     });
 
     test('loads relayUrl/relaySecret from Firestore settings/app', () async {
@@ -96,6 +95,22 @@ void main() {
       await RelayConfig.init(firestore: fake, force: true);
       expect(RelayConfig.relayUrl, 'https://keep.example.com');
       expect(RelayConfig.relaySecret, 'keep');
+    });
+
+    test('loads telegramBotId from Firestore settings/app', () async {
+      final fake = FakeFirebaseFirestore();
+      await fake.collection('settings').doc('app').set({
+        'telegramBotId': '123456',
+      });
+      await RelayConfig.init(firestore: fake, force: true);
+      expect(RelayConfig.telegramBotId, '123456');
+    });
+
+    test('telegramBotId falls back to env when Firestore empty', () async {
+      RelayConfig.setForTest(telegramBotId: 'env-id');
+      final fake = FakeFirebaseFirestore();
+      await RelayConfig.init(firestore: fake, force: true);
+      expect(RelayConfig.telegramBotId, 'env-id');
     });
   });
 }

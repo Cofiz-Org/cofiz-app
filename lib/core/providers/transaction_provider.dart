@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 import '../services/transaction_service.dart';
 import '../services/offline_cache_service.dart';
+import '../utils/date_formatter.dart';
 
 class TransactionProvider with ChangeNotifier {
   final TransactionService _transactionService;
 
-  /// Wired at app composition (main.dart) so optimistic creates/deletes can
-  /// also move the worker Balance Card. Signature: (tx, +1 create | -1 reverse).
+  
+  
   void Function(MoneyTransaction transaction, int direction)?
       onTransactionApplied;
 
@@ -23,7 +24,7 @@ class TransactionProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Worker transactions cursor pagination state
+  
   DocumentSnapshot<Map<String, dynamic>>? _workerLastDoc;
   bool _workerHasMore = false;
   bool _isLoadingMoreWorker = false;
@@ -36,7 +37,7 @@ class TransactionProvider with ChangeNotifier {
 
   bool isPending(String id) => _pendingTxIds.contains(id);
 
-  // Today's totals
+  
   double _todayDistributed = 0.0;
   double _todayReturned = 0.0;
   double _todayPurchased = 0.0;
@@ -55,9 +56,9 @@ class TransactionProvider with ChangeNotifier {
   double get todayPurchased => _todayPurchased;
   double get todayNet => _todayDistributed - _todayReturned - _todayPurchased;
 
-  /// Load worker transactions - bounded live stream (first page) + cursor pages.
-  /// Seeds from the local Hive cache first so cold start or offline shows
-  /// data immediately instead of a blank list.
+  
+  
+  
   void loadWorkerTransactions(String workerId) {
     _currentWorkerId = workerId;
     _workerSub?.cancel();
@@ -66,8 +67,8 @@ class TransactionProvider with ChangeNotifier {
     _workerLoadedExtraPages = false;
     _workerTotalCount = 0;
 
-    // Seed from cache (newest first). Cache failure is non-fatal: fall
-    // through to the live stream with an empty list, like before.
+    
+    
     try {
       final cached =
           OfflineCacheService().getCachedWorkerTransactions(workerId);
@@ -89,7 +90,7 @@ class TransactionProvider with ChangeNotifier {
         (transactions) {
           if (_currentWorkerId != workerId) return;
           _mergeFirstPage(transactions);
-          // Full first page implies more may exist - enable Load More.
+          
           if (!_workerLoadedExtraPages) {
             _workerHasMore = transactions.length >= _workerPageSize;
           }
@@ -97,7 +98,7 @@ class TransactionProvider with ChangeNotifier {
           _persistWorkerCache(workerId);
         },
         onError: (error) {
-          print('Error loading worker transactions: $error');
+          debugPrint('Error loading worker transactions: $error');
           _errorMessage = _parseError(error);
           notifyListeners();
         },
@@ -105,26 +106,26 @@ class TransactionProvider with ChangeNotifier {
 
       _loadWorkerCount(workerId);
     } catch (_) {
-      // Firestore unreachable (e.g. offline cold start): cached data stays.
+      
     }
   }
 
-  /// Persist the currently accumulated worker transactions so the next cold
-  /// start can seed from them. Fire-and-forget; failures are non-fatal.
+  
+  
   void _persistWorkerCache(String workerId) {
     OfflineCacheService()
         .cacheWorkerTransactions(workerId, _workerTransactions)
         .catchError((_) {});
   }
 
-  /// Test seam: seed the in-memory worker transaction list directly.
+  
   @visibleForTesting
   void debugSetWorkerTransactions(List<MoneyTransaction> transactions) {
     _workerTransactions = List.of(transactions);
   }
 
-  /// Load a specific calendar day of a worker's transactions from the server.
-  /// Replaces the live first-page stream while a date filter is active.
+  
+  
   Future<void> loadWorkerTransactionsForDay(
     String workerId,
     DateTime day,
@@ -149,13 +150,13 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load the next page of worker transactions from the backend cursor.
+  
   Future<void> loadMoreWorkerTransactions(String workerId) async {
     if (_isLoadingMoreWorker || !_workerHasMore) return;
     _isLoadingMoreWorker = true;
     notifyListeners();
 
-    // Bootstrap the cursor when the stream-only init left it unset.
+    
     var startAfter = _workerLastDoc;
     if (startAfter == null && _workerTransactions.isNotEmpty) {
       final bootstrap = await _transactionService.getWorkerTransactionsPage(
@@ -234,7 +235,7 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load all transactions - seed from cache instantly, then refresh live.
+  
   void loadAllTransactions() {
     final cached = OfflineCacheService().getCachedTransactions();
     if (cached != null) {
@@ -257,26 +258,27 @@ class TransactionProvider with ChangeNotifier {
           _allTransactions = [...stillPending, ...transactions]
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         }
+        _recomputeTodayFromAll();
         OfflineCacheService()
             .cacheTransactions(_allTransactions)
             .catchError((_) {});
         notifyListeners();
       },
       onError: (error) {
-        print('Error loading all transactions: $error');
+        debugPrint('Error loading all transactions: $error');
         _errorMessage = _parseError(error);
         notifyListeners();
       },
     );
   }
 
-  /// Get all transactions as a Future (for export)
+  
   Future<List<MoneyTransaction>> getAllTransactionsFuture() async {
     return await _transactionService.getAllTransactions();
   }
 
-  /// Add distribution transaction
-  Future<bool> distributeMoneyToWorker({
+  
+  Future<String?> distributeMoneyToWorker({
     required String workerId,
     required String workerName,
     required double amount,
@@ -288,7 +290,7 @@ class TransactionProvider with ChangeNotifier {
     if (amount <= 0) {
       _errorMessage = 'Amount must be greater than 0';
       notifyListeners();
-      return false;
+      return null;
     }
 
     try {
@@ -338,16 +340,16 @@ class TransactionProvider with ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
-      return true;
+      return docId;
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
-  /// Add return transaction
+  
   Future<bool> returnMoneyFromWorker({
     required String workerId,
     required String workerName,
@@ -413,8 +415,8 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Add purchase transaction
-  Future<bool> recordCoffeePurchase({
+  
+  Future<String?> recordCoffeePurchase({
     required String workerId,
     required String workerName,
     required double amount,
@@ -426,12 +428,11 @@ class TransactionProvider with ChangeNotifier {
     double? weight,
     double? pricePerKg,
     double? commission,
-    double? forgivenAmount,
   }) async {
     if (amount <= 0) {
       _errorMessage = 'Amount must be greater than 0';
       notifyListeners();
-      return false;
+      return null;
     }
 
     try {
@@ -454,8 +455,6 @@ class TransactionProvider with ChangeNotifier {
         coffeeWeight: weight,
         pricePerKg: pricePerKg,
         commissionAmount: commission,
-        forgivenAmount: forgivenAmount,
-        isDebt: (forgivenAmount ?? 0) > 0,
       );
 
       final docId3 = await _transactionService.addTransaction(transaction,
@@ -476,23 +475,21 @@ class TransactionProvider with ChangeNotifier {
           coffeeWeight: transaction.coffeeWeight,
           pricePerKg: transaction.pricePerKg,
           commissionAmount: transaction.commissionAmount,
-          forgivenAmount: transaction.forgivenAmount,
-          isDebt: transaction.isDebt,
         ));
       }
 
       _isLoading = false;
       notifyListeners();
-      return true;
+      return docId3;
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 
-  /// Record a collector-to-collector transfer
+  
   Future<bool> transferFromCollectorToCollector({
     required String fromWorkerId,
     required String fromWorkerName,
@@ -574,13 +571,12 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Pending offline deltas for today's activity: queued creates that the
-  /// server aggregates cannot see yet (write not committed). Mirrors the
-  /// income/expense `_refreshTotals` reconcile so Cash In / Cash Out never
-  /// revert while ops are pending.
+  
+  
+  
+  
   (double, double, double) _pendingTodayDeltas() {
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
+    final dayStart = DateFormatter.addisDayStart();
     double distributed = 0;
     double returned = 0;
     double purchased = 0;
@@ -608,7 +604,7 @@ class TransactionProvider with ChangeNotifier {
     return (distributed, returned, purchased);
   }
 
-  /// Load today's totals
+  
   Future<void> loadTodayTotals() async {
     try {
       final cached = OfflineCacheService().getCachedTodayTotals();
@@ -619,13 +615,13 @@ class TransactionProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {
-      // Cache read failure is non-fatal: fall through to network path.
+      
     }
 
     try {
       final totals = await _transactionService.getTodayTotals();
-      // Reconcile with still-pending offline creates so a successful-but-
-      // stale aggregate can't drag today's activity back down.
+      
+      
       final (pendingDist, pendingRet, pendingPurch) = _pendingTodayDeltas();
       _todayDistributed = (totals['distributed'] ?? 0.0) + pendingDist;
       _todayReturned = (totals['returned'] ?? 0.0) + pendingRet;
@@ -637,11 +633,34 @@ class TransactionProvider with ChangeNotifier {
         'purchased': _todayPurchased,
       }).catchError((_) {});
     } catch (e) {
-      print('Error loading today totals: $e');
+      debugPrint('Error loading today totals: $e');
     }
   }
 
-  /// Approve a single transaction entry
+  void _recomputeTodayFromAll() {
+    final startOfDay = DateFormatter.addisDayStart();
+    double dist = 0, ret = 0, purch = 0;
+    for (final t in _allTransactions) {
+      if (t.createdAt.isBefore(startOfDay)) continue;
+      switch (t.type.toLowerCase()) {
+        case 'distribution':
+          dist += t.amount;
+          break;
+        case 'return':
+          ret += t.amount;
+          break;
+        case 'purchase':
+          purch += t.amount;
+          break;
+      }
+    }
+    final (pendingDist, pendingRet, pendingPurch) = _pendingTodayDeltas();
+    _todayDistributed = dist + pendingDist;
+    _todayReturned = ret + pendingRet;
+    _todayPurchased = purch + pendingPurch;
+  }
+
+  
   Future<bool> approveTransaction(String transactionId) async {
     try {
       await _transactionService.approveTransaction(transactionId);
@@ -654,7 +673,7 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Batch approve all pending transactions for a worker
+  
   Future<bool> approveAllForWorker(String workerId) async {
     try {
       await _transactionService.approveAllForWorker(workerId);
@@ -667,7 +686,7 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Approve both sides of a transfer
+  
   Future<bool> approveTransfer(String transferId) async {
     try {
       await _transactionService.approveTransfer(transferId);
@@ -693,8 +712,7 @@ class TransactionProvider with ChangeNotifier {
       _pendingTxIds.add('${tx.transferId}_r');
     }
     onTransactionApplied?.call(tx, 1);
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
+    final dayStart = DateFormatter.addisDayStart();
     if (tx.createdAt.isAfter(dayStart)) {
       switch (tx.type.toLowerCase()) {
         case 'distribution':
@@ -712,9 +730,9 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Optimistically mark matching in-memory entries as approved so the UI
-  /// reflects the confirmation immediately. The live stream reconciles once
-  /// back online.
+  
+  
+  
   void _flipApproved(bool Function(MoneyTransaction) matches) {
     var changed = false;
     final updated = <MoneyTransaction>[];
@@ -730,8 +748,8 @@ class TransactionProvider with ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  /// Optimistically replace a matching in-memory entry so the UI reflects
-  /// the edit immediately. The live stream reconciles once back online.
+  
+  
   void _optimisticReplace(MoneyTransaction tx) {
     var changed = false;
     if (_allTransactions.any((t) => t.id == tx.id)) {
@@ -751,8 +769,8 @@ class TransactionProvider with ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  /// Optimistically remove matching in-memory entries so the UI reflects the
-  /// delete immediately. The live stream reconciles once back online.
+  
+  
   void _optimisticRemove(bool Function(MoneyTransaction) matches) {
     final toRemove = _allTransactions.where(matches).toList();
     for (final t in toRemove) {
@@ -768,9 +786,9 @@ class TransactionProvider with ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  /// Edit an existing transaction (reverses old balance effect, applies new)
-  /// [overrideReason] is required when the transaction is past the
-  /// immutability window.
+  
+  
+  
   Future<bool> updateTransaction(
     MoneyTransaction transaction, {
     String? overrideReason,
@@ -786,7 +804,7 @@ class TransactionProvider with ChangeNotifier {
       ),
     );
     try {
-      // Reverse the OLD effect, then apply the NEW one.
+      
       onTransactionApplied?.call(oldTx, -1);
       onTransactionApplied?.call(transaction, 1);
       _optimisticReplace(transaction);
@@ -804,9 +822,9 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Delete a transaction (reverses its balance effect)
-  /// [overrideReason] is required when the transaction is past the
-  /// immutability window.
+  
+  
+  
   Future<bool> deleteTransaction(
     String transactionId, {
     String? overrideReason,
@@ -836,9 +854,9 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Delete both records of a transfer
-  /// [overrideReason] is required when the transfer is past the
-  /// immutability window.
+  
+  
+  
   Future<bool> deleteTransfer(
     String transferId, {
     String? overrideReason,
@@ -870,13 +888,13 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  /// Clear error
+  
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
-  /// Parse error message
+  
   String _parseError(dynamic error) {
     String errorStr = error.toString();
     if (errorStr.contains('permission-denied') ||
@@ -888,7 +906,7 @@ class TransactionProvider with ChangeNotifier {
     return 'Failed to load transactions.';
   }
 
-  /// Upload receipt
+  
   Future<String?> uploadReceipt(String filePath) async {
     try {
       _isLoading = true;

@@ -31,6 +31,8 @@ void main() {
     await svc.setPin('482917');
     final lsp = LockStateProvider(pinService: svc);
     await lsp.initialize();
+    expect(lsp.state, PinLockState.locked);
+    expect(await lsp.attemptUnlock('482917'), isTrue);
     expect(lsp.state, PinLockState.unlocked);
     final idle = IdleLockService(
       lockState: lsp,

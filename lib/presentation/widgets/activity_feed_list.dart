@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../core/models/expense_record_model.dart';
 import '../../core/models/income_record_model.dart';
 import '../../core/models/transaction_model.dart';
+import '../../core/models/debt_model.dart';
+import '../../core/utils/date_formatter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/number_formatter.dart';
 import '../screens/expense/expenses_screen.dart';
 import '../screens/income/company_income_screen.dart';
 import '../screens/worker_detail/worker_detail_screen.dart';
 import 'transfer_pair_card.dart';
+import 'debt_tag_notes.dart';
 import '../../l10n/app_localizations.dart';
 
 enum FeedFilter { none, in_, out_ }
@@ -231,7 +233,7 @@ class ActivityFeedList extends StatelessWidget {
         if (!t.isTransfer) {
           title = '$title · ${t.workerName}';
         }
-        subtitle = DateFormat('MMM d, h:mm a').format(t.createdAt);
+        subtitle = DateFormatter.formatDateTime(t.createdAt);
         onTap = () {
           Navigator.push(
             context,
@@ -253,7 +255,7 @@ class ActivityFeedList extends StatelessWidget {
         title = r.kind == IncomeKind.investment
             ? '$kindLabel · ${r.viewerName ?? '-'}'
             : kindLabel;
-        subtitle = DateFormat('MMM d, h:mm a').format(r.createdAt);
+        subtitle = DateFormatter.formatDateTime(r.createdAt);
         amount = '+${l10n?.currency ?? 'ETB'} ${r.amount.formatted}';
         onTap = () {
           Navigator.push(
@@ -268,7 +270,7 @@ class ActivityFeedList extends StatelessWidget {
         icon = Icons.receipt_long;
         amountColor = AppColors.error;
         title = e.expenseCategory;
-        subtitle = DateFormat('MMM d, h:mm a').format(e.createdAt);
+        subtitle = DateFormatter.formatDateTime(e.createdAt);
         amount = '-${l10n?.currency ?? 'ETB'} ${e.amount.formatted}';
         onTap = () {
           Navigator.push(
@@ -297,7 +299,7 @@ class ActivityFeedList extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -331,11 +333,13 @@ class ActivityFeedList extends StatelessWidget {
                         subtitle,
                         style: TextStyle(fontSize: 12, color: mutedColor),
                       ),
-                      if (isPurchase && note != null && note.isNotEmpty) ...[
+                      if (isPurchase &&
+                          note != null &&
+                          Debt.cleanNotes(note).isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            '· $note',
+                            '· ${Debt.cleanNotes(note)}',
                             style: TextStyle(fontSize: 12, color: mutedColor),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -351,22 +355,38 @@ class ActivityFeedList extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  amount,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: amountColor,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (Debt.debtTagAmount(note) != null) ...[
+                      DebtTagChip(
+                        transactionId:
+                            item.kind == _FeedKind.transaction
+                                ? (item.payload as MoneyTransaction).id
+                                : null,
+                        fontSize: 10,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: amountColor,
+                      ),
+                    ),
+                  ],
                 ),
                 if (weightLabel != null)
                   Text(
                     weightLabel,
                     style: TextStyle(fontSize: 10, color: mutedColor),
                   )
-                else if (rightNote != null)
+                else if (rightNote != null &&
+                    Debt.cleanNotes(rightNote).isNotEmpty)
                   Text(
-                    rightNote,
+                    Debt.cleanNotes(rightNote),
                     style: TextStyle(fontSize: 10, color: mutedColor),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

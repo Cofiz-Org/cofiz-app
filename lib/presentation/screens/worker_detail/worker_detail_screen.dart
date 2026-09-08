@@ -25,214 +25,194 @@ class WorkerDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // backgroundColor: AppColors.backgroundLight, // Removed for theme support
-      body: Stack(
-        children: [
-          const BackgroundPattern(),
-          Consumer<WorkerProvider>(
-            builder: (context, workerProvider, _) {
-              // Find worker from the reactive list (using full list)
-              final worker = workerProvider.findById(workerId);
+    final theme = Theme.of(context);
+    return Consumer<WorkerProvider>(
+      builder: (context, workerProvider, _) {
+        final worker = workerProvider.findById(workerId);
 
-              if (worker == null) {
-                // If not found in list, try fetching it (or show loading/error)
-                if (workerProvider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: AppColors.primary),
-                      const SizedBox(height: 16),
-                      Text(AppLocalizations.of(context)!.workerNotFound),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(AppLocalizations.of(context)!.goBack),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return CustomScrollView(
-                slivers: [
-                  // App Bar
-                  SliverAppBar(
-                    expandedHeight: 120,
-                    floating: false,
-                    pinned: true,
-                    backgroundColor: AppColors.primary,
-                    leading: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    actions: [
-                      Consumer<AuthProvider>(
-                        builder: (context, authProvider, _) {
-                          final canEdit =
-                              authProvider.userRole?.canEditWorkers ?? false;
-                          final canDelete =
-                              authProvider.userRole?.canDeleteWorkers ?? false;
-
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (canEdit) ...[
-                                if (worker.userId != null)
-                                  IconButton(
-                                    icon: Transform.rotate(
-                                      angle: -0.35,
-                                      child: const Icon(Icons.send,
-                                          color: Colors.white),
-                                    ),
-                                    tooltip: AppLocalizations.of(context)!
-                                        .pingWorker,
-                                    onPressed: () => _showPingDialog(
-                                        context, worker, authProvider),
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: Colors.white),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            WorkerFormScreen(worker: worker),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                              if (canDelete)
-                                IconButton(
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.white),
-                                  onPressed: () async {
-                                    final confirmed = await WorkerActions
-                                        .showDeleteConfirmation(
-                                      context,
-                                      worker.name,
-                                    );
-
-                                    if (confirmed == true && context.mounted) {
-                                      final workerProvider =
-                                          Provider.of<WorkerProvider>(
-                                        context,
-                                        listen: false,
-                                      );
-                                      final success = await workerProvider
-                                          .deleteWorker(worker.id);
-
-                                      if (context.mounted) {
-                                        if (success) {
-                                          final authProvider =
-                                              Provider.of<AuthProvider>(
-                                            context,
-                                            listen: false,
-                                          );
-                                          final auditProvider =
-                                              Provider.of<AuditProvider>(
-                                            context,
-                                            listen: false,
-                                          );
-                                          await auditProvider.logWorkerDeleted(
-                                            userId: authProvider.user?.uid ??
-                                                'unknown',
-                                            userName: authProvider
-                                                    .appUser?.displayName ??
-                                                authProvider.user?.email ??
-                                                'admin',
-                                            workerId: worker.id,
-                                            workerName: worker.name,
-                                          );
-                                          Navigator.pop(context);
-                                          AppToast.show(
-                                              AppLocalizations.of(context)!
-                                                  .workerDeletedSuccessfully,
-                                              success: true);
-                                        } else {
-                                          AppToast.show(
-                                              workerProvider.errorMessage ??
-                                                  AppLocalizations.of(context)!
-                                                      .failedToDeleteWorker);
-                                        }
-                                      }
-                                    }
-                                  },
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                    flexibleSpace: FlexibleSpaceBar(
-                      title: Text(
-                        worker.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      background: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primary.withOpacity(0.8),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Content
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Profile Card
-                          _buildProfileCard(context, worker),
-
-                          const SizedBox(height: 20),
-
-                          // Balance Card
-                          _buildBalanceCard(context, worker),
-
-                          const SizedBox(height: 20),
-
-                          // Action Buttons
-                          _buildActionButtons(context, worker),
-
-                          const SizedBox(height: 40),
-
-                          // Worker Transactions List (renders its own header + filter)
-                          WorkerTransactionsList(
-                            workerId: workerId,
-                            worker: worker,
-                          ),
-
-                          const SizedBox(height: 80),
-                        ],
-                      ),
-                    ),
+        if (worker == null) {
+          if (workerProvider.isLoading) {
+            return Scaffold(
+              backgroundColor: theme.scaffoldBackgroundColor,
+              body: const Center(child: CircularProgressIndicator()),
+            );
+          }
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            appBar: AppBar(
+              backgroundColor: AppColors.primary,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 64, color: AppColors.primary),
+                  const SizedBox(height: 16),
+                  Text(AppLocalizations.of(context)!.workerNotFound),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(AppLocalizations.of(context)!.goBack),
                   ),
                 ],
-              );
-            },
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            backgroundColor: AppColors.primary,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              worker.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            actions: [
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  final canEdit =
+                      authProvider.userRole?.canEditWorkers ?? false;
+                  final canDelete =
+                      authProvider.userRole?.canDeleteWorkers ?? false;
+
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (canEdit) ...[
+                        if (worker.userId != null)
+                          IconButton(
+                            icon: Transform.rotate(
+                              angle: -0.35,
+                              child: const Icon(Icons.send,
+                                  color: Colors.white),
+                            ),
+                            tooltip: AppLocalizations.of(context)!
+                                .pingWorker,
+                            onPressed: () => _showPingDialog(
+                                context, worker, authProvider),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.edit,
+                              color: Colors.white),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    WorkerFormScreen(worker: worker),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                      if (canDelete)
+                        IconButton(
+                          icon: const Icon(Icons.delete,
+                              color: Colors.white),
+                          onPressed: () async {
+                            final confirmed = await WorkerActions
+                                .showDeleteConfirmation(
+                              context,
+                              worker.name,
+                            );
+
+                            if (confirmed == true && context.mounted) {
+                              final workerProvider =
+                                  Provider.of<WorkerProvider>(
+                                context,
+                                listen: false,
+                              );
+                              final success = await workerProvider
+                                  .deleteWorker(worker.id);
+
+                              if (context.mounted) {
+                                if (success) {
+                                  final authProvider =
+                                      Provider.of<AuthProvider>(
+                                    context,
+                                    listen: false,
+                                  );
+                                  final auditProvider =
+                                      Provider.of<AuditProvider>(
+                                    context,
+                                    listen: false,
+                                  );
+                                  await auditProvider.logWorkerDeleted(
+                                    userId: authProvider.user?.uid ??
+                                        'unknown',
+                                    userName: authProvider
+                                            .appUser?.displayName ??
+                                        authProvider.user?.email ??
+                                        'admin',
+                                    workerId: worker.id,
+                                    workerName: worker.name,
+                                  );
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+                                  final l10n = AppLocalizations.of(context)!;
+                                  AppToast.show(
+                                      l10n.workerDeletedSuccessfully,
+                                      success: true);
+                                } else {
+                                  AppToast.show(
+                                      workerProvider.errorMessage ??
+                                          AppLocalizations.of(context)!
+                                              .failedToDeleteWorker);
+                                }
+                              }
+                            }
+                          },
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+          body: Stack(
+            children: [
+              const BackgroundPattern(),
+              SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildProfileCard(context, worker),
+                      const SizedBox(height: 20),
+                      _buildBalanceCard(context, worker),
+                      const SizedBox(height: 20),
+                      _buildActionButtons(context, worker),
+                      const SizedBox(height: 40),
+                      WorkerTransactionsList(
+                        workerId: workerId,
+                        worker: worker,
+                      ),
+                      const SizedBox(height: 80),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -244,7 +224,7 @@ class WorkerDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(
+            color: Colors.black.withValues(alpha: 
                 Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
@@ -370,18 +350,7 @@ class WorkerDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatarInitials(String name) {
-    return Center(
-      child: Text(
-        name.substring(0, 2).toUpperCase(),
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.bold,
-          fontSize: 32,
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildInfoRow(BuildContext context, IconData icon, String text) {
     return Row(
@@ -410,13 +379,13 @@ class WorkerDetailScreen extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             AppColors.primary,
-            AppColors.primary.withOpacity(0.8),
+            AppColors.primary.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -632,7 +601,7 @@ class WorkerDetailScreen extends StatelessWidget {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: warmOrange.withOpacity(
+        backgroundColor: warmOrange.withValues(alpha: 
             Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.12),
         foregroundColor: warmOrange,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -658,18 +627,7 @@ class WorkerDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return Colors.green;
-      case 'busy':
-        return Colors.orange;
-      case 'offline':
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
-  }
+
 
   Future<void> _showPingDialog(
       BuildContext context, Worker worker, AuthProvider authProvider) async {

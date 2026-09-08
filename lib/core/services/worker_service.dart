@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/worker_model.dart';
 
 class WorkerService {
@@ -46,7 +47,7 @@ class WorkerService {
       }
       return null;
     } catch (e) {
-      print('Error getting worker: $e');
+      debugPrint('Error getting worker: $e');
       return null;
     }
   }
@@ -59,10 +60,10 @@ class WorkerService {
           .add(worker.toFirestore());
       return docRef.id;
     } on FirebaseException catch (e) {
-      print('Firestore error adding worker: ${e.code} - ${e.message}');
+      debugPrint('Firestore error adding worker: ${e.code} - ${e.message}');
       throw _handleFirestoreError(e);
     } catch (e) {
-      print('Error adding worker: $e');
+      debugPrint('Error adding worker: $e');
       throw 'Failed to add collector. Please try again.';
     }
   }
@@ -75,10 +76,10 @@ class WorkerService {
           .doc(id)
           .update(worker.toFirestore());
     } on FirebaseException catch (e) {
-      print('Firestore error updating worker: ${e.code} - ${e.message}');
+      debugPrint('Firestore error updating worker: ${e.code} - ${e.message}');
       throw _handleFirestoreError(e);
     } catch (e) {
-      print('Error updating worker: $e');
+      debugPrint('Error updating worker: $e');
       throw 'Failed to update collector. Please try again.';
     }
   }
@@ -90,10 +91,10 @@ class WorkerService {
         'isActive': false,
       });
     } on FirebaseException catch (e) {
-      print('Firestore error deleting worker: ${e.code} - ${e.message}');
+      debugPrint('Firestore error deleting worker: ${e.code} - ${e.message}');
       throw _handleFirestoreError(e);
     } catch (e) {
-      print('Error deleting worker: $e');
+      debugPrint('Error deleting worker: $e');
       throw 'Failed to delete collector. Please try again.';
     }
   }
@@ -128,7 +129,7 @@ class WorkerService {
         'lastActiveAt': DateTime.now().millisecondsSinceEpoch,
       });
     } catch (e) {
-      print('Error updating worker status: $e');
+      debugPrint('Error updating worker status: $e');
       throw 'Failed to update collector status: $e';
     }
   }
@@ -170,7 +171,7 @@ class WorkerService {
         'totalCoffeePurchased': newTotalCoffeePurchased,
       });
     } catch (e) {
-      print('Error updating worker balance: $e');
+      debugPrint('Error updating worker balance: $e');
       throw 'Failed to update collector balance: $e';
     }
   }
@@ -192,12 +193,12 @@ class WorkerService {
 
       final totalRevenue = workers.fold<double>(
         0.0,
-        (sum, worker) => sum + worker.totalCoffeePurchased,
+        (acc, worker) => acc + worker.totalCoffeePurchased,
       );
 
       final avgPerformance = workers.isNotEmpty
           ? workers.fold<double>(
-                  0.0, (sum, worker) => sum + worker.performanceRating) /
+                   0.0, (acc, worker) => acc + worker.performanceRating) /
               workers.length
           : 0.0;
 
@@ -208,7 +209,7 @@ class WorkerService {
         'avgPerformance': avgPerformance,
       };
     } catch (e) {
-      print('Error getting statistics: $e');
+      debugPrint('Error getting statistics: $e');
       return {
         'totalWorkers': 0,
         'activeToday': 0,
@@ -249,7 +250,7 @@ class WorkerService {
               worker.name.toLowerCase().contains(query.toLowerCase()))
           .toList();
     } catch (e) {
-      print('Error searching workers: $e');
+      debugPrint('Error searching workers: $e');
       return [];
     }
   }

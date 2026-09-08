@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/income_record_model.dart';
 import '../../../core/providers/income_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../widgets/eth_date_picker_dialog.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../widgets/custom_header.dart';
 import '../../widgets/offline_indicator.dart';
@@ -31,12 +33,23 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final provider = Provider.of<IncomeProvider>(context, listen: false);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(now.year - 5),
-      lastDate: now,
-    );
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final DateTime? picked;
+    if (settings.calendarType == CalendarType.ethiopian) {
+      picked = await showEthDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? now,
+        firstDate: DateTime(now.year - 5),
+        lastDate: now,
+      );
+    } else {
+      picked = await showThemedDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? now,
+        firstDate: DateTime(now.year - 5),
+        lastDate: now,
+      );
+    }
     if (picked != null) {
       setState(() => _selectedDate = picked);
       provider.loadIncomesForDay(picked);
@@ -94,7 +107,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
               ],
             ),
           ),
-          // Inline offline notice between header and first card.
+          
           const OfflineIndicator(),
           Expanded(
             child: Consumer<IncomeProvider>(
@@ -161,15 +174,15 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
                             ),
                           ),
                         ),
-                        // Pending/failed sync counts - right end of the
-                        // date/filter row.
+                        
+                        
                         const SyncOutboxBanner(),
                         if (_selectedDate != null)
                           TextButton.icon(
                             onPressed: _clearDate,
                             icon: const Icon(Icons.close, size: 16),
                             label: Text(
-                              DateFormat('MMM d, yyyy').format(_selectedDate!),
+                              DateFormatter.formatDate(_selectedDate!),
                             ),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.primary,
@@ -225,7 +238,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
                                 foregroundColor: AppColors.primary,
                                 side: BorderSide(
                                     color:
-                                        AppColors.primary.withOpacity(0.5)),
+                                        AppColors.primary.withValues(alpha: 0.5)),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 24, vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -284,7 +297,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -302,7 +315,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${l10n.currency ?? 'ETB'} ${provider.totalIncome.formatted}',
+            '${l10n.currency} ${provider.totalIncome.formatted}',
             style: TextStyle(
               color: isDark ? Colors.white : Colors.black87,
               fontSize: 30,
@@ -334,7 +347,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
           Icon(icon, color: Colors.white, size: 24),
           const SizedBox(height: 8),
           Text(
-            '${l10n.currency ?? 'ETB'} ${value.formattedCompact}',
+            '${l10n.currency} ${value.compactFor(Localizations.localeOf(context).languageCode)}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -368,7 +381,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
     final title = record.kind == IncomeKind.sale
         ? (record.saleCategory ?? l10n.manualSales)
         : '${l10n.viewerInvestment} · ${record.viewerName ?? '-'}';
-    final subtitle = DateFormat('MMM d, yyyy h:mm a').format(record.createdAt);
+    final subtitle = DateFormatter.formatDateTime(record.createdAt);
 
     return Consumer<AuthProvider>(
       builder: (context, auth, _) => GestureDetector(
@@ -420,7 +433,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '+${l10n.currency ?? 'ETB'} ${record.amount.formatted}',
+                    '+${l10n.currency} ${record.amount.formatted}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -514,7 +527,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -558,7 +571,7 @@ class _CompanyIncomeScreenState extends State<CompanyIncomeScreen> {
     required String value,
   }) {
     return Material(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

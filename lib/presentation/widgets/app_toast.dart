@@ -145,7 +145,7 @@ class _AppToastHostState extends State<AppToastHost>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.35 : 0.12),
+              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -182,7 +182,7 @@ class _AppToastHostState extends State<AppToastHost>
               ),
             ),
             const SizedBox(width: 20),
-            Icon(Icons.close, color: fg.withOpacity(0.6), size: 16),
+            Icon(Icons.close, color: fg.withValues(alpha: 0.6), size: 16),
           ],
         ),
       ),

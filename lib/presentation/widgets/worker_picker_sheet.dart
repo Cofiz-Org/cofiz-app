@@ -62,16 +62,16 @@ class _WorkerPickerSheetState extends State<WorkerPickerSheet> {
               child: Column(
                 children: [
                   SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'transfer',
-                        label: Text('Transfer'),
-                        icon: Icon(Icons.swap_horiz),
+                        label: Text(AppLocalizations.of(context)!.transfer),
+                        icon: const Icon(Icons.swap_horiz),
                       ),
                       ButtonSegment(
                         value: 'return',
-                        label: Text('Return'),
-                        icon: Icon(Icons.remove_circle),
+                        label: Text(AppLocalizations.of(context)!.returnMoney),
+                        icon: const Icon(Icons.remove_circle),
                       ),
                     ],
                     selected: {

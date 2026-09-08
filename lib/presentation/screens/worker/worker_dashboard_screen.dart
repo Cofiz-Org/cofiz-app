@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/phone_otp_auth_provider.dart';
 import '../../../core/providers/worker_provider.dart';
 import '../../../core/providers/transaction_provider.dart';
-import '../../../core/services/offline_cache_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/worker_model.dart';
 import '../settings/settings_screen.dart';
@@ -12,8 +12,6 @@ import 'tabs/worker_home_tab.dart';
 import 'tabs/worker_history_tab.dart';
 import '../../widgets/background_pattern.dart';
 import '../../widgets/double_back_exit.dart';
-import '../../widgets/offline_indicator.dart';
-import '../../widgets/ping_admin_sheet.dart'; // PingAdminButton lives in WorkerHomeTab below Balance Card
 
 class WorkerDashboardScreen extends StatefulWidget {
   final String workerId;
@@ -80,7 +78,12 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                   Text(AppLocalizations.of(context)!.workerDataNotFound),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => authProvider.signOut(),
+                    onPressed: () async {
+                      await authProvider.signOut();
+                      if (context.mounted) {
+                        await Provider.of<PhoneOtpAuthProvider>(context, listen: false).signOut();
+                      }
+                    },
                     child: Text(AppLocalizations.of(context)!.signOut),
                   ),
                 ],

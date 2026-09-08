@@ -42,8 +42,15 @@ class _SaleCategoriesScreenState extends State<SaleCategoriesScreen> {
   Future<void> _addCategory() async {
     final name = _categoryController.text.trim();
     if (name.isEmpty) return;
-    await _incomeService.addSaleCategory(name);
-    _categoryController.clear();
+    final ok = await _incomeService.addSaleCategory(name);
+    if (!mounted) return;
+    if (ok) {
+      _categoryController.clear();
+      AppToast.show(AppLocalizations.of(context)!.categoryAdded,
+          success: true);
+    } else {
+      AppToast.show(AppLocalizations.of(context)!.categoryAddFailed);
+    }
   }
 
   Future<void> _deleteCategory(String category) async {

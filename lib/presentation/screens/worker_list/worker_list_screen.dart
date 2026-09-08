@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/worker_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/transaction_provider.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/worker_item.dart';
 import '../../widgets/custom_header.dart';
@@ -19,7 +20,7 @@ class WorkerListScreen extends StatefulWidget {
 
 class _WorkerListScreenState extends State<WorkerListScreen> {
   final _searchController = TextEditingController();
-  String _selectedFilter = 'all'; // 'all', 'active', 'busy', 'offline'
+  String _selectedFilter = 'all'; 
 
   @override
   void initState() {
@@ -71,7 +72,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
               _dailyCommissionByWorker(transactionProvider);
           return Column(
             children: [
-              // Header
+              
               CustomHeader(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,14 +87,14 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Search Bar
+                    
                     Container(
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
+                            color: Colors.black.withValues(alpha: 0.03),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -152,7 +153,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Filter Chips
+              
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: Row(
@@ -184,7 +185,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
                 ),
               ),
 
-              // Workers List
+              
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _onRefresh,
@@ -303,7 +304,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
       ),
       floatingActionButton: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          // Only show Add Worker button for admins
+          
           final canManageWorkers =
               authProvider.userRole?.canManageWorkers ?? false;
           if (!canManageWorkers) return const SizedBox.shrink();
@@ -325,7 +326,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
   Map<String, double> _dailyCommissionByWorker(
       TransactionProvider transactionProvider) {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
+    final startOfDay = DateFormatter.addisDayStart(now);
 
     final map = <String, double>{};
     for (final t in transactionProvider.allTransactions) {
@@ -404,56 +405,33 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              title: Text(AppLocalizations.of(context)!.all),
-              leading: Radio<String>(
-                value: 'all',
-                groupValue: _selectedFilter,
-                onChanged: (value) {
-                  if (value != null) {
-                    _onFilterChanged(value);
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-            ),
-            ListTile(
-              title: Text(AppLocalizations.of(context)!.active),
-              leading: Radio<String>(
-                value: 'active',
-                groupValue: _selectedFilter,
-                onChanged: (value) {
-                  if (value != null) {
-                    _onFilterChanged(value);
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-            ),
-            ListTile(
-              title: Text(AppLocalizations.of(context)!.busy),
-              leading: Radio<String>(
-                value: 'busy',
-                groupValue: _selectedFilter,
-                onChanged: (value) {
-                  if (value != null) {
-                    _onFilterChanged(value);
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-            ),
-            ListTile(
-              title: Text(AppLocalizations.of(context)!.offline),
-              leading: Radio<String>(
-                value: 'offline',
-                groupValue: _selectedFilter,
-                onChanged: (value) {
-                  if (value != null) {
-                    _onFilterChanged(value);
-                    Navigator.pop(context);
-                  }
-                },
+            RadioGroup<String>(
+              groupValue: _selectedFilter,
+              onChanged: (value) {
+                if (value != null) {
+                  _onFilterChanged(value);
+                  Navigator.pop(context);
+                }
+              },
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text(AppLocalizations.of(context)!.all),
+                    leading: const Radio<String>(value: 'all'),
+                  ),
+                  ListTile(
+                    title: Text(AppLocalizations.of(context)!.active),
+                    leading: const Radio<String>(value: 'active'),
+                  ),
+                  ListTile(
+                    title: Text(AppLocalizations.of(context)!.busy),
+                    leading: const Radio<String>(value: 'busy'),
+                  ),
+                  ListTile(
+                    title: Text(AppLocalizations.of(context)!.offline),
+                    leading: const Radio<String>(value: 'offline'),
+                  ),
+                ],
               ),
             ),
           ],

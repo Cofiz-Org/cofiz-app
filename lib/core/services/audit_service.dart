@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/audit_log_model.dart';
 
 class AuditService {
@@ -26,10 +27,13 @@ class AuditService {
         timestamp: DateTime.now(),
       );
 
-      await _firestore.collection(_collection).add(log.toFirestore());
+      await _firestore
+          .collection(_collection)
+          .add(log.toFirestore())
+          .timeout(const Duration(seconds: 5));
     } catch (e) {
       // Silent fail - don't let audit logging break the app
-      print('Audit log failed: $e');
+      debugPrint('Audit log failed: $e');
     }
   }
 
@@ -86,7 +90,7 @@ class AuditService {
       }
       await batch.commit();
     } catch (e) {
-      print('Failed to delete old logs: $e');
+      debugPrint('Failed to delete old logs: $e');
     }
   }
 }

@@ -21,7 +21,9 @@ class AuthService {
   Future<void> enablePersistence() async {
     try {
       await _auth.setPersistence(Persistence.LOCAL);
-    } catch (e) {}
+    } catch (e) {
+      // Intentionally ignored — persistence may not be supported on all platforms.
+    }
   }
 
   /// Sign in with email and password

@@ -53,7 +53,8 @@ class ConnectivityService {
     return results.any((result) =>
         result == ConnectivityResult.mobile ||
         result == ConnectivityResult.wifi ||
-        result == ConnectivityResult.ethernet);
+        result == ConnectivityResult.ethernet ||
+        result == ConnectivityResult.vpn);
   }
 
   void _updateConnectionStatus(List<ConnectivityResult> results) {

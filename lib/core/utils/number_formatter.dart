@@ -18,6 +18,18 @@ class NumberFormatter {
     return _weightFormat.format(value);
   }
 
+  static String formatWeightAuto(num kg,
+      {required String kgUnit, required String tonUnit}) {
+    if (kg.abs() >= 1000) {
+      final tons = kg / 1000;
+      final body = tons == tons.roundToDouble()
+          ? tons.round().toString()
+          : tons.toStringAsFixed(1);
+      return '$body $tonUnit';
+    }
+    return '${format(kg)} $kgUnit';
+  }
+
   static String formatCurrency(num value, {String currency = 'ETB'}) {
     return '$currency ${format(value)}';
   }
@@ -26,14 +38,18 @@ class NumberFormatter {
     return '$currency ${formatDecimal(value)}';
   }
 
-  static String formatCompact(num value) {
+  static String formatCompact(num value, {String languageCode = 'en'}) {
     final abs = value.abs();
+    final useAm = languageCode.toLowerCase().startsWith('am');
+    final billion = useAm ? 'ቢ' : 'B';
+    final million = useAm ? 'ሚ' : 'M';
+    final thousand = useAm ? 'ሺ' : 'K';
     if (abs >= 1000000000) {
-      return '${_trimTrailingZero(value / 1000000000)}B';
+      return '${_trimTrailingZero(value / 1000000000)}$billion';
     } else if (abs >= 1000000) {
-      return '${_trimTrailingZero(value / 1000000)}M';
+      return '${_trimTrailingZero(value / 1000000)}$million';
     } else if (abs >= 1000) {
-      return '${_trimTrailingZero(value / 1000)}K';
+      return '${_trimTrailingZero(value / 1000)}$thousand';
     }
     return format(value);
   }
@@ -54,4 +70,7 @@ extension NumFormatting on num {
   String get asWeight => '${NumberFormatter.formatWeight(this)} Kg';
 
   String get formattedCompact => NumberFormatter.formatCompact(this);
+
+  String compactFor(String languageCode) =>
+      NumberFormatter.formatCompact(this, languageCode: languageCode);
 }

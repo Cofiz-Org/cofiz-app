@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../models/transaction_model.dart';
 import '../models/worker_model.dart';
+import '../utils/date_formatter.dart';
 import '../config/cloudinary_config.dart';
 import '../utils/receipt_image_utils.dart';
 import '../utils/transaction_balance.dart' as tb;
 export '../utils/transaction_balance.dart' show TransactionLockedException;
 import 'connectivity_service.dart';
-import 'notification_trigger_service.dart';
 import 'offline_cache_service.dart';
 import 'offline_sync_service.dart';
 
-/// A single page of transactions from a cursor-paginated query.
+
 class TransactionPage {
   final List<MoneyTransaction> items;
   final DocumentSnapshot<Map<String, dynamic>>? lastDoc;
@@ -27,18 +28,16 @@ class TransactionPage {
   });
 }
 
-// TransactionLockedException is shared with OfflineSyncService — see transaction_balance.dart
+
 class TransactionService {
   final FirebaseFirestore _firestore;
 
   TransactionService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
-  late final NotificationTriggerService _notificationService =
-      NotificationTriggerService();
   static const String _transactionsCollection = 'transactions';
 
-  /// Get transactions for a specific worker
-  /// [limit] bounds the real-time stream to the newest items.
+  
+  
   Stream<List<MoneyTransaction>> getWorkerTransactionsStream(
     String workerId, {
     int limit = 20,
@@ -56,7 +55,7 @@ class TransactionService {
     });
   }
 
-  /// Fetch a page of worker transactions (newest first) via cursor.
+  
   Future<TransactionPage> getWorkerTransactionsPage(
     String workerId, {
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
@@ -81,14 +80,14 @@ class TransactionService {
         hasMore: snapshot.docs.length == pageSize,
       );
     } catch (e) {
-      print('Error fetching worker transactions page: $e');
+      debugPrint('Error fetching worker transactions page: $e');
       return TransactionPage(items: const [], lastDoc: null, hasMore: false);
     }
   }
 
-  /// Fetch all transactions for a worker on a specific calendar day (local time).
-  /// Used by the date filter on the worker detail page so that old dates can be
-  /// viewed without paginating through the full history.
+  
+  
+  
   Future<List<MoneyTransaction>> getWorkerTransactionsForDay(
     String workerId,
     DateTime day,
@@ -110,8 +109,8 @@ class TransactionService {
           .map((doc) => MoneyTransaction.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
-      // Offline: filter the per-worker Hive cache by day instead of an
-      // empty set that would blank the date-filtered history.
+      
+      
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
       final cached =
@@ -124,7 +123,7 @@ class TransactionService {
     }
   }
 
-  /// Total count of transactions for a worker (server-side count).
+  
   Future<int> getWorkerTransactionCount(String workerId) async {
     try {
       final snap = await _firestore
@@ -134,12 +133,12 @@ class TransactionService {
           .get();
       return snap.count ?? 0;
     } catch (e) {
-      print('Error counting worker transactions: $e');
+      debugPrint('Error counting worker transactions: $e');
       return 0;
     }
   }
 
-  /// Get all transactions
+  
   Stream<List<MoneyTransaction>> getAllTransactionsStream() {
     return _firestore
         .collection(_transactionsCollection)
@@ -149,13 +148,13 @@ class TransactionService {
         return MoneyTransaction.fromFirestore(doc.data(), doc.id);
       }).toList();
 
-      // Sort by date (newest first)
+      
       transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return transactions;
     });
   }
 
-  /// Get all transactions (One-time fetch)
+  
   Future<List<MoneyTransaction>> getAllTransactions() async {
     try {
       final snapshot = await _firestore
@@ -167,22 +166,21 @@ class TransactionService {
           .map((doc) => MoneyTransaction.fromFirestore(doc.data(), doc.id))
           .toList();
     } catch (e) {
-      print('Error fetching all transactions: $e');
+      debugPrint('Error fetching all transactions: $e');
       return [];
     }
   }
 
-  /// Add transaction and update worker balance (queue-first).
-  /// [localReceiptPath] carries a receipt captured offline; the sync service
-  /// uploads it when connectivity returns.
+  
+  
+  
   Future<String?> addTransaction(
     MoneyTransaction transaction, {
     String? localReceiptPath,
   }) async {
     if (transaction.amount <= 0) throw 'Amount must be greater than 0';
     if (ConnectivityService().isOnline &&
-        (transaction.type.toLowerCase() == 'purchase' ||
-            transaction.type.toLowerCase() == 'return')) {
+        transaction.type.toLowerCase() == 'return') {
       try {
         final workerDoc = await _firestore
             .collection('workers')
@@ -200,18 +198,17 @@ class TransactionService {
           throw 'Insufficient balance. Available: ETB ${currentBalance.toStringAsFixed(2)}, Required: ETB ${transaction.amount.toStringAsFixed(2)}';
         }
       } catch (e) {
-        if (e is String) rethrow; // business rule - surface to the user
-        // Network failure while marked online (fail-open connectivity):
-        // fall through to the offline projected check + queue instead of
-        // erroring the user out of a valid offline action.
+        if (e is String) rethrow; 
+        
+        
+        
         final projected = _projectedBalance(transaction.workerId);
         if (projected != null && transaction.amount > projected) {
           throw 'Insufficient balance. Available: ETB ${projected.toStringAsFixed(2)}, Required: ETB ${transaction.amount.toStringAsFixed(2)}';
         }
       }
     } else if (!ConnectivityService().isOnline &&
-        (transaction.type.toLowerCase() == 'purchase' ||
-            transaction.type.toLowerCase() == 'return')) {
+        transaction.type.toLowerCase() == 'return') {
       final projected = _projectedBalance(transaction.workerId);
       if (projected != null && transaction.amount > projected) {
         throw 'Insufficient balance. Available: ETB ${projected.toStringAsFixed(2)}, Required: ETB ${transaction.amount.toStringAsFixed(2)}';
@@ -236,10 +233,11 @@ class TransactionService {
       'coffeeWeight': transaction.coffeeWeight,
       'pricePerKg': transaction.pricePerKg,
       'commissionAmount': transaction.commissionAmount,
+      'forgivenAmount': transaction.forgivenAmount,
       'queuedAt': DateTime.now().toIso8601String(),
       'attempts': 0,
     });
-    // optimistic cache
+    
     final cached = OfflineCacheService().getCachedTransactions() ?? [];
     final optimistic = MoneyTransaction(
       id: docId,
@@ -264,15 +262,15 @@ class TransactionService {
       transferRole: transaction.transferRole,
     );
     await OfflineCacheService().cacheTransactions([...cached, optimistic]);
-    // Mirror into the per-worker cache so the worker detail page still sees
-    // the optimistic row after an app restart (offline).
+    
+    
     unawaited(_mirrorWorkerCache(optimistic.workerId));
     unawaited(OfflineSyncService().syncNow());
     return docId;
   }
 
-  /// Re-persist [workerId]'s slice of the global transaction cache into the
-  /// per-worker box. Best-effort: failures are non-fatal.
+  
+  
   Future<void> _mirrorWorkerCache(String workerId) async {
     try {
       final all = OfflineCacheService().getCachedTransactions() ?? [];
@@ -281,7 +279,7 @@ class TransactionService {
     } catch (_) {}
   }
 
-  /// Record a collector-to-collector transfer: two linked records + balances (queue-first).
+  
   Future<String?> addTransfer({
     required String fromWorkerId,
     required String fromWorkerName,
@@ -293,24 +291,6 @@ class TransactionService {
   }) async {
     if (amount <= 0) {
       throw 'Amount must be greater than 0';
-    }
-
-    if (ConnectivityService().isOnline) {
-      final senderDoc =
-          await _firestore.collection('workers').doc(fromWorkerId).get();
-      if (!senderDoc.exists) {
-        throw 'Collector not found';
-      }
-      final senderBalance =
-          (senderDoc.data()?['currentBalance'] ?? 0.0).toDouble();
-      if (amount > senderBalance) {
-        throw 'Insufficient balance. Available: ETB ${senderBalance.toStringAsFixed(2)}, Required: ETB ${amount.toStringAsFixed(2)}';
-      }
-    } else {
-      final projected = _projectedBalance(fromWorkerId);
-      if (projected != null && amount > projected) {
-        throw 'Insufficient balance. Available: ETB ${projected.toStringAsFixed(2)}, Required: ETB ${amount.toStringAsFixed(2)}';
-      }
     }
 
     final opId = const Uuid().v4();
@@ -337,7 +317,7 @@ class TransactionService {
       'attempts': 0,
     });
 
-    // optimistic cache: two MoneyTransactions
+    
     final cached = OfflineCacheService().getCachedTransactions() ?? [];
     final senderTx = MoneyTransaction(
       id: senderDocId,
@@ -381,7 +361,7 @@ class TransactionService {
     return transferId;
   }
 
-  /// Approve a single transaction entry (queue-first-always)
+  
   Future<void> approveTransaction(String transactionId) async {
     await OfflineCacheService().queueOperation({
       'opId': const Uuid().v4(),
@@ -393,7 +373,7 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Batch approve all pending transactions for a worker (queue-first-always)
+  
   Future<void> approveAllForWorker(String workerId) async {
     await OfflineCacheService().queueOperation({
       'opId': const Uuid().v4(),
@@ -405,7 +385,7 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Approve both records of a transfer by shared transferId (queue-first-always)
+  
   Future<void> approveTransfer(String transferId) async {
     await OfflineCacheService().queueOperation({
       'opId': const Uuid().v4(),
@@ -417,9 +397,9 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Delete both records of a transfer by shared transferId, reversing balances.
-  /// If the transfer is past the immutability window, [overrideReason] must be
-  /// provided by an admin.
+  
+  
+  
   Future<void> deleteTransfer(
     String transferId, {
     String? overrideReason,
@@ -453,9 +433,9 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Edit an existing transaction, reversing the old balance effect and applying the new one
-  /// If the transaction is past the immutability window, [overrideReason] must be
-  /// provided by an admin.
+  
+  
+  
   Future<void> updateTransaction(
     MoneyTransaction transaction, {
     String? overrideReason,
@@ -477,8 +457,7 @@ class TransactionService {
       throw 'Transfers cannot be edited.';
     }
     if (!ConnectivityService().isOnline) {
-      if (transaction.type.toLowerCase() == 'purchase' ||
-          transaction.type.toLowerCase() == 'return') {
+      if (transaction.type.toLowerCase() == 'return') {
         final projected = _projectedBalance(transaction.workerId);
         if (projected != null) {
           double available = projected;
@@ -491,10 +470,9 @@ class TransactionService {
         }
       }
     } else {
-      // online: still enforce balance using projected (cached + pending) as fallback if worker doc unavailable
-      if (transaction.type.toLowerCase() == 'purchase' ||
-          transaction.type.toLowerCase() == 'return') {
-        // try live check via firestore if online; if fails fallback to projected
+      
+      if (transaction.type.toLowerCase() == 'return') {
+        
         try {
           final workerDoc = await _firestore
               .collection('workers')
@@ -503,8 +481,8 @@ class TransactionService {
           if (workerDoc.exists) {
             final currentBalance =
                 (workerDoc.data()?['currentBalance'] ?? 0.0).toDouble();
-            // Old row may be absent from the (already-mutated) cache; the
-            // check must still run - just without an old-effect adjustment.
+            
+            
             final oldEffect =
                 old != null && old.type.toLowerCase() == 'distribution'
                     ? old.amount
@@ -525,9 +503,9 @@ class TransactionService {
       'type': 'updateTransaction',
       'docId': transaction.id,
       'payload': transaction.toFirestore(),
-      // Pre-mutation snapshot so projected-balance math (and the sync
-      // executor) can reverse the OLD effect even though the cache was
-      // already replaced optimistically.
+      
+      
+      
       if (old != null) 'previous': old.toFirestore(),
       'overrideReason': overrideReason,
       'localReceiptPath': localReceiptPath,
@@ -544,9 +522,9 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Delete an existing transaction, reversing its balance effect
-  /// If the transaction is past the immutability window, [overrideReason] must be
-  /// provided by an admin.
+  
+  
+  
   Future<void> deleteTransaction(
     String transactionId, {
     String? overrideReason,
@@ -562,26 +540,6 @@ class TransactionService {
       _enforceLock(tx, overrideReason: overrideReason, action: 'delete');
       if (tx.isTransfer) {
         throw 'Use transfer delete for transfers.';
-      }
-      // Deleting a distribution removes money from the worker's balance:
-      // refuse when the removal would push it negative, regardless of
-      // connectivity (live balance when online, projected otherwise).
-      if (tx.type.toLowerCase() == 'distribution') {
-        double? available;
-        if (ConnectivityService().isOnline) {
-          try {
-            final workerDoc =
-                await _firestore.collection('workers').doc(tx.workerId).get();
-            if (workerDoc.exists) {
-              available =
-                  (workerDoc.data()?['currentBalance'] ?? 0.0).toDouble();
-            }
-          } catch (_) {}
-        }
-        available ??= _projectedBalance(tx.workerId);
-        if (available != null && tx.amount > available) {
-          throw 'Insufficient balance. Available: ETB ${available.toStringAsFixed(2)}, Required: ETB ${tx.amount.toStringAsFixed(2)}';
-        }
       }
     }
     await OfflineCacheService().queueOperation({
@@ -600,8 +558,8 @@ class TransactionService {
     unawaited(OfflineSyncService().syncNow());
   }
 
-  /// Throws if the transaction is past the immutability window and no admin
-  // shared with OfflineSyncService — keep in sync (delegates to transaction_balance.dart)
+  
+  
   void _enforceLock(
     MoneyTransaction transaction, {
     required String? overrideReason,
@@ -627,8 +585,8 @@ class TransactionService {
     }
   }
 
-  /// Cached worker balance + pending op deltas, or null when the worker has no
-  /// cached baseline (local validation impossible — sync enforces authoritatively).
+  
+  
   double? _projectedBalance(String workerId) {
     double base = 0;
     Worker? w =
@@ -665,14 +623,15 @@ class TransactionService {
                 : DateTime.now(),
             createdBy: op['createdBy'] as String? ?? '',
             commissionAmount: (op['commissionAmount'] as num?)?.toDouble(),
+            forgivenAmount: (op['forgivenAmount'] as num?)?.toDouble(),
             transferId: op['transferId'] as String?,
             transferRole: op['transferRole'] as String?,
           );
           base += _numericBalanceDelta(mt, 1);
         } else if (type == 'deleteTransaction') {
           final docId = op['docId'] as String?;
-          // Prefer the pre-mutation snapshot: the cache was already
-          // optimistically mutated, so txMap no longer holds the original.
+          
+          
           final prevMap = op['previous'] as Map<String, dynamic>?;
           MoneyTransaction? tx;
           if (prevMap != null) {
@@ -727,83 +686,9 @@ class TransactionService {
     return base;
   }
 
-  /// Trigger notifications based on transaction type
-  Future<void> _triggerTransactionNotifications({
-    required MoneyTransaction transaction,
-    required double balanceChange,
-  }) async {
-    try {
-      // Get worker data to check userId and new balance
-      final workerDoc = await _firestore
-          .collection('workers')
-          .doc(transaction.workerId)
-          .get();
 
-      if (!workerDoc.exists) return;
 
-      final workerData = workerDoc.data()!;
-      final workerUserId = workerData['userId'] as String?;
-      final workerName = workerData['name'] as String? ?? 'Collector';
-      final newBalance = (workerData['currentBalance'] ?? 0.0).toDouble();
-      final totalCommission =
-          (workerData['totalCommissionEarned'] ?? 0.0).toDouble();
-
-      // Only send notifications if worker has a user account
-      if (workerUserId == null || workerUserId.isEmpty) return;
-
-      switch (transaction.type.toLowerCase()) {
-        case 'distribution':
-          // Notify worker they received money
-          await _notificationService.notifyMoneyDistributed(
-            workerId: transaction.workerId,
-            workerUserId: workerUserId,
-            workerName: workerName,
-            amount: transaction.amount,
-            adminName: null,
-          );
-          break;
-
-        case 'purchase':
-          // Check for low balance
-          await _notificationService.checkLowBalance(
-            workerId: transaction.workerId,
-            workerUserId: workerUserId,
-            workerName: workerName,
-            newBalance: newBalance,
-          );
-
-          // Notify commission earned
-          if (transaction.commissionAmount != null &&
-              transaction.commissionAmount! > 0) {
-            await _notificationService.notifyCommissionEarned(
-              workerUserId: workerUserId,
-              workerName: workerName,
-              commission: transaction.commissionAmount!,
-              totalCommission: totalCommission,
-            );
-          }
-
-          // Check for large purchase (notify admins)
-          await _notificationService.checkLargePurchase(
-            workerId: transaction.workerId,
-            workerName: workerName,
-            amount: transaction.amount,
-            coffeeType: transaction.coffeeType,
-            weight: transaction.coffeeWeight,
-          );
-          break;
-
-        case 'return':
-          // Could add notification for returns if needed
-          break;
-      }
-    } catch (e) {
-      // Don't fail the transaction if notification fails
-      print('Error triggering notifications: $e');
-    }
-  }
-
-  /// Get recent transactions (limit)
+  
   Future<List<MoneyTransaction>> getRecentTransactions({int limit = 10}) async {
     try {
       final snapshot = await _firestore
@@ -818,12 +703,12 @@ class TransactionService {
       transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return transactions;
     } catch (e) {
-      print('Error getting recent transactions: $e');
+      debugPrint('Error getting recent transactions: $e');
       return [];
     }
   }
 
-  /// Get worker transactions (limit)
+  
   Future<List<MoneyTransaction>> getWorkerTransactions(
     String workerId, {
     int limit = 50,
@@ -842,12 +727,12 @@ class TransactionService {
       transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return transactions;
     } catch (e) {
-      print('Error getting worker transactions: $e');
+      debugPrint('Error getting worker transactions: $e');
       return [];
     }
   }
 
-  /// Get transactions by type
+  
   Future<List<MoneyTransaction>> getTransactionsByType(String type) async {
     try {
       final snapshot = await _firestore
@@ -862,16 +747,15 @@ class TransactionService {
       transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return transactions;
     } catch (e) {
-      print('Error getting transactions by type: $e');
+      debugPrint('Error getting transactions by type: $e');
       return [];
     }
   }
 
-  /// Calculate total for today
+  
   Future<Map<String, double>> getTodayTotals() async {
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfDay = DateFormatter.addisDayStart();
       final startTimestamp = startOfDay.millisecondsSinceEpoch;
 
       final snapshot = await _firestore
@@ -904,7 +788,7 @@ class TransactionService {
         'purchased': totalPurchased,
       };
     } catch (e) {
-      print('Error getting today totals: $e');
+      debugPrint('Error getting today totals: $e');
       return {
         'distributed': 0.0,
         'returned': 0.0,
@@ -934,7 +818,7 @@ class TransactionService {
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode != 200) {
-        print(
+        debugPrint(
           'Cloudinary upload failed (${response.statusCode}): ${response.body}',
         );
         throw 'Failed to upload receipt image';
@@ -944,7 +828,7 @@ class TransactionService {
       final secureUrl = json['secure_url'] as String?;
       return secureUrl;
     } catch (e) {
-      print('Error uploading receipt: $e');
+      debugPrint('Error uploading receipt: $e');
       throw 'Failed to upload receipt image';
     }
   }

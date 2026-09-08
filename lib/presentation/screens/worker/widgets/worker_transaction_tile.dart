@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
-import 'package:intl/intl.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/utils/number_formatter.dart';
 import '../../../../core/models/transaction_model.dart';
+import '../../../../core/models/debt_model.dart';
+import '../../../widgets/debt_tag_notes.dart';
 
 class WorkerTransactionTile extends StatelessWidget {
   final MoneyTransaction transaction;
@@ -46,14 +48,14 @@ class WorkerTransactionTile extends StatelessWidget {
 
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -84,14 +86,12 @@ class WorkerTransactionTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.brown.withOpacity(0.2),
+                          color: Colors.brown.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          transaction.coffeeType!
-                                  .substring(0, 1)
-                                  .toUpperCase() +
-                              transaction.coffeeType!.substring(1),
+                          _coffeeTypeLabel(
+                              context, transaction.coffeeType!),
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.brown,
@@ -106,7 +106,7 @@ class WorkerTransactionTile extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      DateFormat('MMM d, h:mm a').format(transaction.createdAt),
+                      DateFormatter.formatDateTime(transaction.createdAt),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark
@@ -147,19 +147,30 @@ class WorkerTransactionTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '$prefix ${AppLocalizations.of(context)?.currency ?? 'ETB'} ${transaction.amount.formatted}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (Debt.debtTagAmount(transaction.notes) != null) ...[
+                    DebtTagChip(
+                      transactionId: transaction.id,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    '$prefix ${AppLocalizations.of(context)?.currency ?? 'ETB'} ${transaction.amount.formatted}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
               ),
-              if (transaction.notes != null && transaction.notes!.isNotEmpty)
+              if (Debt.cleanNotes(transaction.notes).isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    transaction.notes!,
+                    Debt.cleanNotes(transaction.notes),
                     style: TextStyle(
                       fontSize: 12,
                       color:
@@ -209,6 +220,20 @@ class WorkerTransactionTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _coffeeTypeLabel(BuildContext context, String raw) {
+    final l10n = AppLocalizations.of(context);
+    switch (raw.toLowerCase()) {
+      case 'jenfel':
+        return l10n?.jenfel ?? 'Dried';
+      case 'yetatebe':
+        return l10n?.yetatebe ?? 'Washed';
+      case 'special':
+        return l10n?.special ?? 'Special';
+      default:
+        return raw.substring(0, 1).toUpperCase() + raw.substring(1);
+    }
   }
 
   String _getTransactionTitle(BuildContext context, String type) {

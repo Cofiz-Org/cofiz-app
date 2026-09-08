@@ -23,8 +23,9 @@ void main() {
     expect(u.containsKey('totalCoffeePurchased'), isTrue);
   });
 
-  test('purchase with forgiven subtracts only covered portion key present', () {
+  test('purchase with legacy forgiven still drains the full amount', () {
     final u = transactionBalanceUpdates(purchase(amount: 1000, forgiven: 600, isDebt: true), 1);
     expect(u.containsKey('currentBalance'), isTrue);
+    expect(u.containsKey('totalCoffeePurchased'), isTrue);
   });
 }

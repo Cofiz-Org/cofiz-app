@@ -8,9 +8,9 @@ import 'package:cofiz/presentation/screens/auth/phone_login_screen.dart';
 import '../../../_support/mock_http_client.dart';
 
 void main() {
-  testWidgets('PhoneLoginScreen shows Send Code button, Telegram button and provider toggle', (tester) async {
+  testWidgets('PhoneLoginScreen shows two buttons, reveals phone field after WhatsApp tap', (tester) async {
     final mock = MockHttpClient();
-    mock.onPost('/auth/whatsapp/start', (_) => {'verificationId': 'v1', 'expiresInSeconds': 300});
+    mock.onPost('/auth/whatsapp/start', (_) => {'challengeId': 'v1', 'expiresIn': 300});
     final provider = PhoneOtpAuthProvider(
       backend: AuthBackend(baseUrl: 'https://x', client: mock),
     );
@@ -25,10 +25,13 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 800));
-    expect(find.text('Telegram'), findsOneWidget);
-    expect(find.text('WhatsApp'), findsOneWidget);
-    expect(find.byKey(const Key('sendCodeButton')), findsOneWidget);
     expect(find.byKey(const Key('continueWithTelegramButton')), findsOneWidget);
+    expect(find.byKey(const Key('continueWithWhatsappButton')), findsOneWidget);
+    expect(find.byKey(const Key('sendCodeButton')), findsNothing);
+    await tester.tap(find.byKey(const Key('continueWithWhatsappButton')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('sendCodeButton')), findsOneWidget);
+    expect(find.byKey(const Key('whatsappPhoneField')), findsOneWidget);
     await tester.pumpAndSettle();
   });
 }

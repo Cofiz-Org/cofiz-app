@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/expense_record_model.dart';
 import '../../../core/providers/expense_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../widgets/eth_date_picker_dialog.dart';
 import '../../../core/utils/number_formatter.dart';
+import '../../../core/models/debt_model.dart';
 import '../../widgets/custom_header.dart';
+import '../../widgets/debt_tag_notes.dart';
 import '../../widgets/offline_indicator.dart';
 import '../../widgets/sync_outbox_banner.dart';
 import '../../widgets/app_toast.dart';
@@ -31,12 +35,23 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final provider = Provider.of<ExpenseProvider>(context, listen: false);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(now.year - 5),
-      lastDate: now,
-    );
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final DateTime? picked;
+    if (settings.calendarType == CalendarType.ethiopian) {
+      picked = await showEthDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? now,
+        firstDate: DateTime(now.year - 5),
+        lastDate: now,
+      );
+    } else {
+      picked = await showThemedDatePicker(
+        context: context,
+        initialDate: _selectedDate ?? now,
+        firstDate: DateTime(now.year - 5),
+        lastDate: now,
+      );
+    }
     if (picked != null) {
       setState(() => _selectedDate = picked);
       provider.loadExpensesForDay(picked);
@@ -94,7 +109,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ],
             ),
           ),
-          // Inline offline notice between header and first card.
+          
           const OfflineIndicator(),
           Expanded(
             child: Consumer<ExpenseProvider>(
@@ -110,7 +125,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         boxShadow: [
                           BoxShadow(
                             color:
-                                Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                                Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -128,7 +143,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${l10n.currency ?? 'ETB'} ${provider.totalExpenses.formatted}',
+                            '${l10n.currency} ${provider.totalExpenses.formatted}',
                             style: TextStyle(
                               color: isDark ? Colors.white : Colors.black87,
                               fontSize: 30,
@@ -169,15 +184,15 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             ),
                           ),
                         ),
-                        // Pending/failed sync counts - right end of the
-                        // date/filter row.
+                        
+                        
                         const SyncOutboxBanner(),
                         if (_selectedDate != null)
                           TextButton.icon(
                             onPressed: _clearDate,
                             icon: const Icon(Icons.close, size: 16),
                             label: Text(
-                              DateFormat('MMM d, yyyy').format(_selectedDate!),
+                              DateFormatter.formatDate(_selectedDate!),
                             ),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.primary,
@@ -233,7 +248,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                 foregroundColor: AppColors.primary,
                                 side: BorderSide(
                                     color:
-                                        AppColors.primary.withOpacity(0.5)),
+                                        AppColors.primary.withValues(alpha: 0.5)),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 24, vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -295,7 +310,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
-    final subtitle = DateFormat('MMM d, yyyy h:mm a').format(record.createdAt);
+    final subtitle = DateFormatter.formatDateTime(record.createdAt);
 
     return Consumer<AuthProvider>(
       builder: (context, auth, _) => GestureDetector(
@@ -341,19 +356,30 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '-${l10n.currency ?? 'ETB'} ${record.amount.formatted}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (Debt.debtTagAmount(record.description) != null) ...[
+                        DebtTagChip(
+                          transactionId: record.id,
+                          fontSize: 10,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        '-${l10n.currency} ${record.amount.formatted}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
-                  if (record.description != null &&
-                      record.description!.isNotEmpty) ...[
+                  if (Debt.cleanNotes(record.description).isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
-                      record.description!,
+                      Debt.cleanNotes(record.description),
                       textAlign: TextAlign.end,
                       style: TextStyle(
                         fontSize: 11,
@@ -436,7 +462,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -480,7 +506,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     required String value,
   }) {
     return Material(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

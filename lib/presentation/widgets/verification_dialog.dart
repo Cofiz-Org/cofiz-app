@@ -174,6 +174,7 @@ class _VerificationDialogState extends State<VerificationDialog> {
         try {
           await widget.onVerified?.call();
         } catch (_) {}
+        if (!mounted) return;
         AppToast.show(l10n.emailVerifiedSuccess, success: true);
         Navigator.of(context).pop(true);
       } else {

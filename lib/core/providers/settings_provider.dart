@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/notification_service.dart';
+import '../utils/date_formatter.dart';
 
 class SettingsProvider with ChangeNotifier {
   final FirebaseFirestore _firestore;
@@ -9,6 +10,8 @@ class SettingsProvider with ChangeNotifier {
   bool _emailNotifications = true;
   bool _pushNotifications = true;
   Locale _locale = const Locale('en');
+  CalendarType _calendarType = CalendarType.gregorian;
+  CalendarType get calendarType => _calendarType;
 
   // Business Settings
   String _companyName = 'Stitch Plc';
@@ -53,6 +56,13 @@ class SettingsProvider with ChangeNotifier {
     if (languageCode != null) {
       _locale = Locale(languageCode);
     }
+    final storedCalendar = prefs.getString('calendar_type_v1');
+    if (storedCalendar != null) {
+      _calendarType = storedCalendar == 'ethiopian' ? CalendarType.ethiopian : CalendarType.gregorian;
+    } else {
+      _calendarType = _locale.languageCode == 'am' ? CalendarType.ethiopian : CalendarType.gregorian;
+    }
+    DateFormatter.setActive(_calendarType);
 
     // Load Business Settings
     _companyName = prefs.getString('company_name') ?? 'YT Plc';
@@ -118,11 +128,23 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> togglePushNotifications(bool value) async {
+  Future<void> togglePushNotifications(bool value, {String? uid}) async {
     _pushNotifications = value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('push_notifications', value);
+
+    // Sync the opt-in so the push relay can respect it server-side per user.
+    if (uid != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .set({'pushNotificationsEnabled': value}, SetOptions(merge: true));
+      } catch (_) {
+        // Best-effort: local preference already saved.
+      }
+    }
 
     if (value) {
       await NotificationService().requestPermissions();
@@ -166,6 +188,21 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', locale.languageCode);
+    final hasExplicitCalendar = prefs.containsKey('calendar_type_v1');
+    if (!hasExplicitCalendar) {
+      _calendarType = locale.languageCode == 'am' ? CalendarType.ethiopian : CalendarType.gregorian;
+      DateFormatter.setActive(_calendarType);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setCalendarType(CalendarType type) async {
+    if (_calendarType == type) return;
+    _calendarType = type;
+    DateFormatter.setActive(type);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('calendar_type_v1', type.name);
   }
 
   Future<void> setAdminReminderTime(String time) async {

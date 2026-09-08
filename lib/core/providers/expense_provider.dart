@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/expense_record_model.dart';
 import '../services/expense_service.dart';
 import '../services/offline_cache_service.dart';
+import '../utils/date_formatter.dart';
 
 class ExpenseProvider extends ChangeNotifier {
   ExpenseProvider({ExpenseService? service})
@@ -17,34 +18,34 @@ class ExpenseProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Cursor pagination state
+  
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
   bool _hasMore = false;
   bool _isLoadingMore = false;
   bool _loadedExtraPages = false;
   StreamSubscription<List<ExpenseRecord>>? _subscription;
 
-  // Day-filter state: when non-null, _records holds that day's full list.
+  
   DateTime? _activeDay;
   int _loadGeneration = 0;
 
-  // Guards concurrent _refreshTotals() runs: only the latest invocation may
-  // write results (prevents stale refresh clobbering fresh totals).
+  
+  
   int _totalsGeneration = 0;
 
-  // True once totals hold real session data (computed or seeded). Replaces
-  // the old "all zeros means cold start" heuristic, which misfired after an
-  // optimistic delete zeroed every total and re-seeded stale cache values.
+  
+  
+  
   bool _totalsHaveData = false;
 
-  // Optimistic record ids (queued ops not yet confirmed by the server
-  // stream). Protected from being dropped by _mergeFirstPage.
+  
+  
   final Set<String> _pendingIds = {};
 
-  // Full dataset (used by reports/export, loaded on demand)
+  
   List<ExpenseRecord> _fullRecords = [];
 
-  // Server-side aggregate totals
+  
   double _totalExpenses = 0.0;
   double _todayExpenses = 0.0;
   int _totalCount = 0;
@@ -67,7 +68,7 @@ class ExpenseProvider extends ChangeNotifier {
     _subscription = _service.getExpensesPageStream(limit: _pageSize).listen(
       (records) {
         _mergeFirstPage(records);
-        // Full first page implies more may exist - enable Load More.
+        
         if (!_loadedExtraPages) _hasMore = records.length >= _pageSize;
         _isLoading = false;
         _errorMessage = null;
@@ -82,7 +83,7 @@ class ExpenseProvider extends ChangeNotifier {
     _refreshTotals();
   }
 
-  /// Restore the live first-page stream after a day filter is cleared.
+  
   void restoreStream() {
     _subscription?.cancel();
     _subscription = null;
@@ -98,8 +99,8 @@ class ExpenseProvider extends ChangeNotifier {
     initialize();
   }
 
-  /// Load all expense records for a specific calendar day from the server.
-  /// Replaces the live first-page stream while a date filter is active.
+  
+  
   Future<void> loadExpensesForDay(DateTime day) async {
     final generation = ++_loadGeneration;
     _subscription?.cancel();
@@ -154,7 +155,6 @@ class ExpenseProvider extends ChangeNotifier {
   void _mergeFirstPage(List<ExpenseRecord> freshHead) {
     if (_activeDay != null) return;
 
-    // Optimistic records the server hasn't confirmed yet stay visible.
     final freshIds = freshHead.map((r) => r.id).toSet();
     final stillPending = _records
         .where((r) => _pendingIds.contains(r.id) && !freshIds.contains(r.id))
@@ -167,12 +167,14 @@ class ExpenseProvider extends ChangeNotifier {
     if (stillPending.isEmpty) {
       if (!_loadedExtraPages) {
         _records = freshHead;
+        _recomputeTotalsFromRecords();
         return;
       }
       final tail = _records.length > freshHead.length
           ? _records.sublist(freshHead.length)
           : <ExpenseRecord>[];
       _records = [...freshHead, ...tail];
+      _recomputeTotalsFromRecords();
       return;
     }
 
@@ -180,11 +182,25 @@ class ExpenseProvider extends ChangeNotifier {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (!_loadedExtraPages) {
       _records = merged;
+      _recomputeTotalsFromRecords();
       return;
     }
     final tailIds = merged.map((r) => r.id).toSet();
     final tail = _records.where((r) => !tailIds.contains(r.id)).toList();
     _records = [...merged, ...tail];
+    _recomputeTotalsFromRecords();
+  }
+
+  void _recomputeTotalsFromRecords() {
+    final dayStart = DateFormatter.addisDayStart();
+    double total = 0, today = 0;
+    for (final r in _records) {
+      total += r.amount;
+      if (r.createdAt.isAfter(dayStart)) today += r.amount;
+    }
+    _totalExpenses = total;
+    _todayExpenses = today;
+    notifyListeners();
   }
 
   Future<void> _refreshTotals() async {
@@ -195,20 +211,19 @@ class ExpenseProvider extends ChangeNotifier {
     final todayExpenses = await _service.getExpensesTodayTotal();
     final count = await _service.getExpensesCount();
 
-    // A newer refresh started while this one was in flight - discard.
+    
     if (generation != _totalsGeneration) return;
 
-    // Reconcile: a successful-but-stale aggregate (taken before the queued
-    // create committed) would otherwise drag the total back down; add the
-    // still-pending amounts back onto server truth.
+    
+    
+    
     final pendingById = {
       for (final r in _records)
         if (_pendingIds.contains(r.id)) r.id: r,
       for (final r in _fullRecords)
         if (_pendingIds.contains(r.id)) r.id: r,
     };
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
+    final dayStart = DateFormatter.addisDayStart();
     double pendingTotal = 0;
     double pendingToday = 0;
     for (final r in pendingById.values) {
@@ -218,9 +233,9 @@ class ExpenseProvider extends ChangeNotifier {
     debugPrint(
         '[Expense] refresh gen=$generation serverTotal=$totalExpenses pending=${pendingById.length} ($pendingTotal)');
 
-    // Only overwrite fields that actually succeeded; keep last-known values
-    // otherwise so a failed query (e.g. index still building) never zeros
-    // the dashboard.
+    
+    
+    
     var anyFailed = false;
     if (totalExpenses != null) {
       _totalExpenses = totalExpenses + pendingTotal;
@@ -250,14 +265,14 @@ class ExpenseProvider extends ChangeNotifier {
         'totalCount': _totalCount.toDouble(),
       });
     } catch (_) {
-      // Cache write failure is non-fatal: totals still shown from network.
+      
     }
   }
 
   void _seedTotalsFromCache() {
     try {
-      // Seed only before the session has any total data (cold start);
-      // mid-session seeding flashes stale values.
+      
+      
       if (_totalsHaveData) return;
       final cached = OfflineCacheService().getCachedExpenseTotals();
       if (cached == null) return;
@@ -267,11 +282,11 @@ class ExpenseProvider extends ChangeNotifier {
       _totalsHaveData = true;
       notifyListeners();
     } catch (_) {
-      // Cache read failure is non-fatal: fall through to network path.
+      
     }
   }
 
-  /// Load the complete dataset (used by reports/export screens).
+  
   Future<void> loadFullRecords() async {
     try {
       final cached = OfflineCacheService().getCachedExpenses();
@@ -280,7 +295,7 @@ class ExpenseProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {
-      // Cache read failure is non-fatal: fall through to network path.
+      
     }
 
     final records = await _service.getAllExpenses();
@@ -288,18 +303,18 @@ class ExpenseProvider extends ChangeNotifier {
     try {
       await OfflineCacheService().cacheExpenses(records);
     } catch (_) {
-      // Cache write failure is non-fatal: still notify with fresh data.
+      
     }
     notifyListeners();
   }
 
-  Future<bool> addExpense(ExpenseRecord record) async {
+  Future<String?> addExpense(ExpenseRecord record) async {
     final id = await _service.addExpense(record);
     debugPrint('[Expense] addExpense queued id=$id amount=${record.amount}');
     if (id == null) {
       _errorMessage = 'Failed to record expense';
       notifyListeners();
-      return false;
+      return null;
     }
     final optimistic = record.copyWith(id: id);
     if (!_records.any((r) => r.id == id)) {
@@ -308,18 +323,18 @@ class ExpenseProvider extends ChangeNotifier {
     if (!_fullRecords.any((r) => r.id == id)) {
       _fullRecords = [optimistic, ..._fullRecords];
     }
-    // Optimistic totals bump; next successful refresh reconciles.
+    
     _totalExpenses += optimistic.amount;
     _todayExpenses += optimistic.amount;
     _totalCount += 1;
-    // Optimistic mutations establish live session data: later refreshes
-    // must never seed stale cache values over them.
+    
+    
     _totalsHaveData = true;
     _pendingIds.add(id);
     notifyListeners();
     _totalsGeneration++;
     _refreshTotals();
-    return true;
+    return id;
   }
 
   Future<bool> updateExpense(ExpenseRecord record) async {
@@ -328,8 +343,8 @@ class ExpenseProvider extends ChangeNotifier {
     final fullIdx = _fullRecords.indexWhere((r) => r.id == record.id);
     final oldFull = fullIdx >= 0 ? _fullRecords[fullIdx] : null;
 
-    // Optimistic replace BEFORE awaiting the service: offline edits must
-    // show up instantly; the service queues the op and returns true.
+    
+    
     _records = [for (final r in _records) r.id == record.id ? record : r];
     _fullRecords = [
       for (final r in _fullRecords) r.id == record.id ? record : r,
@@ -338,7 +353,7 @@ class ExpenseProvider extends ChangeNotifier {
 
     final success = await _service.updateExpense(record);
     if (!success) {
-      // Rollback the optimistic replace (queue failure path).
+      
       if (old != null) {
         _records = [
           for (final r in _records) r.id == old.id ? old : r,
@@ -358,14 +373,14 @@ class ExpenseProvider extends ChangeNotifier {
   }
 
   Future<bool> deleteExpense(String id) async {
-    // Cancel a still-queued create so the record cannot resurrect after
-    // the delete (server delete of a not-yet-synced doc is a no-op).
+    
+    
     await OfflineCacheService().removePendingOperationByOpId(id);
     _pendingIds.remove(id);
 
-    // Optimistic removal BEFORE the service call: offline deletes must
-    // drop the row instantly, and if the record never reached the server
-    // (pending create) no stream emission will ever arrive to remove it.
+    
+    
+    
     final removed = <String, ExpenseRecord>{};
     for (final r in [..._records, ..._fullRecords]) {
       if (r.id != id || removed.containsKey(r.id)) continue;
@@ -373,15 +388,14 @@ class ExpenseProvider extends ChangeNotifier {
     }
     _records = _records.where((r) => r.id != id).toList();
     _fullRecords = _fullRecords.where((r) => r.id != id).toList();
-    // Bump the generation BEFORE mutating totals so any in-flight refresh
-    // cannot clobber these values while we await the service call below.
+    
+    
     _totalsGeneration++;
     _totalsHaveData = true;
-    // Optimistically decrement totals; next refresh reconciles with truth.
-    // Today totals only move for records created today — deleting an old
-    // record must not corrupt them (mirrors IncomeProvider).
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
+    
+    
+    
+    final dayStart = DateFormatter.addisDayStart();
     for (final r in removed.values) {
       _totalExpenses -= r.amount;
       if (r.createdAt.isAfter(dayStart)) _todayExpenses -= r.amount;
@@ -394,13 +408,13 @@ class ExpenseProvider extends ChangeNotifier {
     final success = await _service.deleteExpense(id);
     debugPrint('[Expense] deleteExpense id=$id serverSuccess=$success');
     if (!success) {
-      // Keep removed state (already tombstoned) — outbox will retry.
+      
       return false;
     }
     try {
       await OfflineCacheService().removeCachedExpense(id);
     } catch (_) {
-      // Cache write failure is non-fatal: next cache sync reconciles.
+      
     }
     _totalsGeneration++;
     _refreshTotals();
@@ -411,8 +425,7 @@ class ExpenseProvider extends ChangeNotifier {
       records.fold(0.0, (total, r) => total + r.amount);
 
   static double sumToday(Iterable<ExpenseRecord> records, {DateTime? now}) {
-    final reference = now ?? DateTime.now();
-    final start = DateTime(reference.year, reference.month, reference.day);
+    final start = DateFormatter.addisDayStart(now);
     final end = start.add(const Duration(days: 1));
     return records
         .where((r) => r.createdAt.isAfter(start) && r.createdAt.isBefore(end))

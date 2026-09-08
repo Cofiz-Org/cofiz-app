@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../config/relay_config.dart';
 import '../models/user_model.dart';
+import 'push_relay_service.dart';
 
 class PingService {
   final FirebaseFirestore _firestore;
@@ -84,30 +81,20 @@ class PingService {
       await batch.commit();
     }
 
-    // Relay push per admin (best-effort) — ensure Firestore-sourced config is loaded
-    String relayUrl = _relayUrlOverride ?? RelayConfig.relayUrl;
-    String relaySecret = _relaySecretOverride ?? RelayConfig.relaySecret;
-    if (_relayUrlOverride == null || _relaySecretOverride == null) {
-      try {
-        await RelayConfig.ensureInitialized(firestore: _firestore);
-        relayUrl = _relayUrlOverride ?? RelayConfig.relayUrl;
-        relaySecret = _relaySecretOverride ?? RelayConfig.relaySecret;
-      } catch (_) {}
-    }
-    final isConfigured = relayUrl.isNotEmpty && relaySecret.isNotEmpty;
-    if (isConfigured) {
-      for (final doc in adminSnap.docs) {
-        await _pushViaRelay(
-          targetUserId: doc.id,
-          title: title,
-          body: note,
-          type: type,
-          relayUrl: relayUrl,
-          relaySecret: relaySecret,
-        );
-      }
-    } else {
-      debugPrint('[Ping] relay not configured — skipping push');
+    // Relay push per admin (best-effort, honors push opt-out).
+    final relay = PushRelayService(
+      firestore: _firestore,
+      httpClient: _httpClient,
+      relayUrl: _relayUrlOverride,
+      relaySecret: _relaySecretOverride,
+    );
+    for (final doc in adminSnap.docs) {
+      await relay.sendPush(
+        targetUserId: doc.id,
+        title: title,
+        body: note,
+        type: type,
+      );
     }
 
     // Update cooldown marker
@@ -140,31 +127,4 @@ class PingService {
     return null;
   }
 
-  Future<void> _pushViaRelay({
-    required String targetUserId,
-    required String title,
-    required String body,
-    required String type,
-    required String relayUrl,
-    required String relaySecret,
-  }) async {
-    try {
-      final res = await _httpClient.post(
-        Uri.parse(relayUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Relay-Secret': relaySecret,
-        },
-        body: jsonEncode({
-          'targetUserId': targetUserId,
-          'title': title,
-          'body': body,
-          'type': type,
-        }),
-      );
-      debugPrint('[Ping][Relay] $type -> $targetUserId: ${res.statusCode}');
-    } catch (e) {
-      debugPrint('[Ping][Relay] push failed: $e');
-    }
-  }
 }

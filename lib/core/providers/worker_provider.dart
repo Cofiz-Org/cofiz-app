@@ -69,7 +69,7 @@ class WorkerProvider with ChangeNotifier {
         notifyListeners();
       },
       onError: (error) {
-        print('Worker stream error: $error');
+        debugPrint('Worker stream error: $error');
         // Parse error for user-friendly message
         String friendlyMessage = 'Unable to load collectors.';
 
@@ -192,9 +192,8 @@ class WorkerProvider with ChangeNotifier {
         ret += t.amount * m;
         break;
       case 'purchase':
-        final covered = t.amount - (t.forgivenAmount ?? 0.0);
-        balance -= covered * m;
-        purch += covered * m;
+        balance -= t.amount * m;
+        purch += t.amount * m;
         if ((t.commissionAmount ?? 0) > 0) comm += t.commissionAmount! * m;
         break;
       case 'transfer':

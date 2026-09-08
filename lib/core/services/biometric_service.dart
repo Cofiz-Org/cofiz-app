@@ -2,7 +2,9 @@ import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
 class BiometricService {
-  final LocalAuthentication _auth = LocalAuthentication();
+  BiometricService({LocalAuthentication? auth}) : _auth = auth ?? LocalAuthentication();
+
+  final LocalAuthentication _auth;
 
   Future<bool> isDeviceSupported() async {
     try {
@@ -32,6 +34,17 @@ class BiometricService {
       return await _auth.getAvailableBiometrics();
     } catch (e) {
       return <BiometricType>[];
+    }
+  }
+
+  Future<bool> isAvailable() async {
+    try {
+      final canCheck = await _auth.canCheckBiometrics;
+      final supported = canCheck || await _auth.isDeviceSupported();
+      if (!supported) return false;
+      return (await _auth.getAvailableBiometrics()).isNotEmpty;
+    } catch (e) {
+      return false;
     }
   }
 }

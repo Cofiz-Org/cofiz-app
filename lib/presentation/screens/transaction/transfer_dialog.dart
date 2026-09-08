@@ -80,7 +80,7 @@ class _TransferDialogState extends State<TransferDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: theme.dialogBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       child: Container(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -119,7 +119,7 @@ class _TransferDialogState extends State<TransferDialog> {
                         RegExp(r'^\d+\.?\d{0,2}')),
                   ],
                   decoration: InputDecoration(
-                    labelText: l10n.amountWithCurrency(l10n.currency ?? 'ETB'),
+                    labelText: l10n.amountWithCurrency(l10n.currency),
                     prefixIcon: const Icon(Icons.attach_money,
                         color: AppColors.primary),
                     border: OutlineInputBorder(

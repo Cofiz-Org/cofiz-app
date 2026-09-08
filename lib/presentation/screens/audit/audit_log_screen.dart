@@ -5,7 +5,9 @@ import '../../../core/models/audit_log_model.dart';
 import '../../../core/services/audit_service.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../widgets/background_pattern.dart';
+import '../../widgets/styled_dropdown.dart';
 import '../../../l10n/app_localizations.dart';
 
 class AuditLogScreen extends StatefulWidget {
@@ -70,37 +72,33 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Audit Logs'),
+        title: Text(AppLocalizations.of(context)!.auditLogs),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
-          PopupMenuButton<AuditAction?>(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter',
-            onSelected: (value) {
-              setState(() => _selectedFilter = value);
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: null,
-                child: Text(AppLocalizations.of(context)!.allActions),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: StyledDropdown<AuditAction?>(
+                width: 180,
+                values: const [null, ...AuditAction.values],
+                value: _selectedFilter,
+                label: (action) => action == null
+                    ? AppLocalizations.of(context)!.allActions
+                    : action.displayName,
+                itemLeading: (action) => action == null
+                    ? null
+                    : Icon(
+                        _getActionIcon(action),
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+                leading: Icons.filter_list,
+                onChanged: (value) {
+                  setState(() => _selectedFilter = value);
+                },
               ),
-              const PopupMenuDivider(),
-              ...AuditAction.values.map((action) => PopupMenuItem(
-                    value: action,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _getActionIcon(action),
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(action.displayName),
-                      ],
-                    ),
-                  )),
-            ],
+            ),
           ),
         ],
       ),
@@ -210,7 +208,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                     final groupedLogs = <String, List<AuditLog>>{};
                     for (final log in logs) {
                       final dateKey =
-                          DateFormat('MMMM d, yyyy').format(log.timestamp);
+                          DateFormatter.formatDate(log.timestamp);
                       groupedLogs.putIfAbsent(dateKey, () => []).add(log);
                     }
 
@@ -261,7 +259,7 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -375,7 +373,5 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     }
   }
 
-  Color _getActionColor(AuditAction action) {
-    return AppColors.primary;
-  }
+
 }

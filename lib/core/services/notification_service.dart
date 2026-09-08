@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     as fln;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart';
+
+import '../utils/app_navigator.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -57,7 +61,20 @@ class NotificationService {
       await _notificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (details) {
-          // Handle notification tap
+          final payload = details.payload;
+          if (payload == null || payload.isEmpty) return;
+          try {
+            final map = jsonDecode(payload) as Map<String, dynamic>;
+            final type = map['type']?.toString() ?? 'info';
+            final data = <String, String>{};
+            final raw = map['data'];
+            if (raw is Map) {
+              raw.forEach((k, v) => data[k.toString()] = v.toString());
+            }
+            AppNavigator.openNotificationType(type, data);
+          } catch (_) {
+            AppNavigator.openNotificationType('info');
+          }
         },
       )
           // A stuck platform channel must not block app startup (hot-restart

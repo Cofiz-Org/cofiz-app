@@ -6,13 +6,14 @@ import '../../../core/providers/worker_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/audit_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/services/worker_account_service.dart';
-import '../../dialogs/worker_credentials_dialog.dart';
+import '../../../core/services/collector_invite_service.dart';
+import '../../../core/utils/phone_utils.dart';
 import '../../widgets/background_pattern.dart';
 import '../../widgets/app_toast.dart';
+import '../../widgets/phone_field.dart';
 
 class WorkerFormScreen extends StatefulWidget {
-  final Worker? worker; // null for add, Worker for edit
+  final Worker? worker;
 
   const WorkerFormScreen({super.key, this.worker});
 
@@ -24,17 +25,14 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
   final _commissionRateController = TextEditingController();
+  final _phoneFieldKey = GlobalKey<PhoneFieldState>();
 
   int _yearsOfExperience = 0;
   String _status = 'active';
   bool _isLoading = false;
 
-  // Login account creation
   bool _createLoginAccount = false;
-  String? _generatedPassword;
-  String? _createdUserId;
 
   bool get isEditMode => widget.worker != null;
 
@@ -44,12 +42,11 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
     if (isEditMode) {
       _nameController.text = widget.worker!.name;
       _phoneController.text = widget.worker!.phone;
-      _emailController.text = widget.worker!.email ?? '';
       _commissionRateController.text = widget.worker!.commissionRate.toString();
       _yearsOfExperience = widget.worker!.yearsOfExperience;
       _status = widget.worker!.status;
     } else {
-      _commissionRateController.text = '2.0'; // Default
+      _commissionRateController.text = '2.0';
     }
   }
 
@@ -57,7 +54,6 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
     _commissionRateController.dispose();
     super.dispose();
   }
@@ -67,23 +63,14 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
       return;
     }
 
-    // Validate email is provided if creating login account
-    if (_createLoginAccount && _emailController.text.trim().isEmpty) {
-      AppToast.show(AppLocalizations.of(context)!.emailRequiredForLogin,
-          success: true);
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     final worker = Worker(
       id: widget.worker?.id ?? '',
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
-      email: _emailController.text.trim().isEmpty
-          ? null
-          : _emailController.text.trim(),
-      role: widget.worker?.role ?? 'Worker', // Default role for workers
+      email: widget.worker?.email,
+      role: widget.worker?.role ?? 'Worker',
       yearsOfExperience: _yearsOfExperience,
       status: _status,
       performanceRating: 70.0,
@@ -114,103 +101,76 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
       success = newWorkerId != null;
     }
 
-    if (mounted) {
-      if (success) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        final auditProvider =
-            Provider.of<AuditProvider>(context, listen: false);
-        final adminName =
-            authProvider.appUser?.displayName ?? authProvider.user?.email ?? '';
-        final adminId = authProvider.user?.uid ?? 'unknown';
+    if (!mounted) return;
 
-        if (isEditMode) {
-          await auditProvider.logWorkerUpdated(
-            userId: adminId,
-            userName: adminName,
-            workerId: widget.worker!.id,
-            workerName: worker.name,
-          );
-        } else if (newWorkerId != null) {
-          await auditProvider.logWorkerCreated(
-            userId: adminId,
-            userName: adminName,
-            workerId: newWorkerId,
-            workerName: worker.name,
-            hasLoginAccount: _createLoginAccount,
-          );
-        }
-        // Determine if account creation is needed
-        final targetId = isEditMode ? widget.worker!.id : newWorkerId;
-        final shouldCreateAccount = _createLoginAccount &&
-            (!isEditMode ||
-                (isEditMode && !(widget.worker?.hasLoginAccess ?? false)));
+    if (success) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final auditProvider = Provider.of<AuditProvider>(context, listen: false);
+      final adminName = authProvider.appUser?.displayName ?? authProvider.user?.email ?? '';
+      final adminId = authProvider.user?.uid ?? 'unknown';
 
-        if (shouldCreateAccount && targetId != null) {
-          final accountService = WorkerAccountService();
-          final result = await accountService.createWorkerAccount(
-            workerId: targetId,
-            email: _emailController.text.trim(),
-            workerName: _nameController.text.trim(),
-          );
-
-          // Force update local cache if possible, or wait for stream
-          // Note: WorkerProvider stream will eventually update the worker with userId
-
-          setState(() => _isLoading = false);
-
-          if (result['success'] == true) {
-            await auditProvider.logUserCreated(
-              adminUserId: adminId,
-              adminUserName: adminName,
-              newUserId: result['userId'] as String? ?? targetId,
-              newUserEmail: _emailController.text.trim(),
-              role: 'worker',
-            );
-            // Check if it was a restoration (existing account)
-            if (result['message'] != null) {
-              if (mounted) {
-                AppToast.show(
-                  '${result['message']}',
-                  success: true,
-                );
-              }
-            } else {
-              // Show credentials dialog for new accounts
-              if (mounted) {
-                await showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => WorkerCredentialsDialog(
-                    workerName: _nameController.text.trim(),
-                    email: _emailController.text.trim(),
-                    password: result['password'] as String,
-                    phone: _phoneController.text.trim().isEmpty
-                        ? null
-                        : _phoneController.text.trim(),
-                  ),
-                );
-              }
-            }
-          } else {
-            // Account creation failed, show error but worker was still created
-            AppToast.show(AppLocalizations.of(context)!
-                .workerSavedAccountFailed(result['error']));
-          }
-        } else {
-          setState(() => _isLoading = false);
-          AppToast.show(
-            isEditMode
-                ? AppLocalizations.of(context)!.workerUpdatedSuccessfully
-                : AppLocalizations.of(context)!.workerAddedSuccessfully,
-            success: true,
-          );
-        }
-        Navigator.pop(context);
-      } else {
-        setState(() => _isLoading = false);
-        AppToast.show(workerProvider.errorMessage ??
-            AppLocalizations.of(context)!.failedToSaveWorker);
+      if (isEditMode) {
+        await auditProvider.logWorkerUpdated(
+          userId: adminId,
+          userName: adminName,
+          workerId: widget.worker!.id,
+          workerName: worker.name,
+        );
+      } else if (newWorkerId != null) {
+        await auditProvider.logWorkerCreated(
+          userId: adminId,
+          userName: adminName,
+          workerId: newWorkerId,
+          workerName: worker.name,
+          hasLoginAccount: _createLoginAccount,
+        );
       }
+
+      if (!isEditMode && newWorkerId != null && _createLoginAccount) {
+        final phoneE164 = normalizeE164(_phoneController.text.trim());
+        if (!isValidE164(phoneE164)) {
+          setState(() => _isLoading = false);
+          AppToast.show('Enter a valid Ethiopian phone before creating a login account.');
+          return;
+        }
+        final invite = CollectorInviteService();
+        final result = await invite.createCollector(
+          phoneE164: phoneE164,
+          displayName: _nameController.text.trim(),
+          workerId: newWorkerId,
+          adminUid: adminId,
+        );
+        if (result.isExists) {
+          setState(() => _isLoading = false);
+          AppToast.show('A collector with this phone is already registered.');
+          return;
+        }
+        await auditProvider.logUserCreated(
+          adminUserId: adminId,
+          adminUserName: adminName,
+          newUserId: result.uid,
+          newUserEmail: '',
+          role: 'worker',
+        );
+        setState(() => _isLoading = false);
+        AppToast.show('Worker added. The collector can now sign in via Telegram or WhatsApp.');
+        if (mounted) Navigator.pop(context);
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      AppToast.show(
+        isEditMode
+            ? AppLocalizations.of(context)!.workerUpdatedSuccessfully
+            : AppLocalizations.of(context)!.workerAddedSuccessfully,
+        success: true,
+      );
+      if (mounted) Navigator.pop(context);
+    } else {
+      setState(() => _isLoading = false);
+      AppToast.show(workerProvider.errorMessage ??
+          AppLocalizations.of(context)!.failedToSaveWorker);
     }
   }
 
@@ -221,25 +181,22 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
     final cardColor = isDark ? theme.cardColor : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
     final shadowColor =
-        isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.03);
+        isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.03);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: cardColor,
+        backgroundColor: AppColors.primary,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: textColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEditMode
               ? AppLocalizations.of(context)!.editWorker
               : AppLocalizations.of(context)!.addWorker,
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         actions: [
           if (_isLoading)
@@ -275,7 +232,6 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // Name Field
                 _buildTextField(
                   controller: _nameController,
                   label: AppLocalizations.of(context)!.fullName,
@@ -288,28 +244,13 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
-
-                // Phone Field
-                _buildTextField(
+                PhoneField(
+                  key: _phoneFieldKey,
                   controller: _phoneController,
-                  label: AppLocalizations.of(context)!.phoneNumber,
-                  icon: Icons.phone,
-                  keyboardType: TextInputType.phone,
                   isDark: isDark,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return AppLocalizations.of(context)!
-                          .phoneNumberIsRequired;
-                    }
-                    return null;
-                  },
                 ),
-
                 const SizedBox(height: 16),
-
-                // Commission Rate Field
                 _buildTextField(
                   controller: _commissionRateController,
                   label: AppLocalizations.of(context)!.commissionRate,
@@ -328,45 +269,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
-
-                // Email Field (Required for login account)
-                _buildTextField(
-                  controller: _emailController,
-                  label: _createLoginAccount
-                      ? AppLocalizations.of(context)!.emailRequiredLogin
-                      : AppLocalizations.of(context)!.emailOptional,
-                  icon: Icons.email,
-                  keyboardType: TextInputType.emailAddress,
-                  isDark: isDark,
-                  validator: (value) {
-                    if (_createLoginAccount) {
-                      if (value == null || value.trim().isEmpty) {
-                        return AppLocalizations.of(context)!
-                            .emailRequiredForLogin;
-                      }
-                      // Email format validation
-                      final emailRegex =
-                          RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                      if (!emailRegex.hasMatch(value.trim())) {
-                        return AppLocalizations.of(context)!.enterValidEmail;
-                      }
-                    } else if (value != null && value.trim().isNotEmpty) {
-                      // If email is optional but provided, still validate format
-                      final emailRegex =
-                          RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                      if (!emailRegex.hasMatch(value.trim())) {
-                        return AppLocalizations.of(context)!.enterValidEmail;
-                      }
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                // Create Login Account Toggle (new workers or existing without login)
                 if (!isEditMode ||
                     (isEditMode && !(widget.worker?.hasLoginAccess ?? false)))
                   Container(
@@ -376,7 +279,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _createLoginAccount
-                            ? AppColors.primary.withOpacity(0.5)
+                            ? AppColors.primary.withValues(alpha: 0.5)
                             : Colors.grey.shade300,
                         width: 2,
                       ),
@@ -426,12 +329,8 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                       ],
                     ),
                   ),
-
                 if (!isEditMode) const SizedBox(height: 16),
-
                 const SizedBox(height: 24),
-
-                // Years of Experience
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -479,7 +378,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -496,10 +395,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Status
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -543,7 +439,6 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 100),
               ],
             ),
@@ -563,7 +458,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
   }) {
     final cardColor = isDark ? Theme.of(context).cardColor : Colors.white;
     final shadowColor =
-        isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.03);
+        isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.03);
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Container(
@@ -609,7 +504,7 @@ class _WorkerFormScreenState extends State<WorkerFormScreen> {
       String label, String value, Color color, bool isDark) {
     final isSelected = _status == value;
     final unselectedBg =
-        isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100;
+        isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100;
     final unselectedText = isDark ? Colors.white70 : Colors.black87;
 
     return Expanded(

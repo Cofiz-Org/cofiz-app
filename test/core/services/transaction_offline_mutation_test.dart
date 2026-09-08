@@ -89,7 +89,7 @@ void main() {
     expect((await fake.collection('transactions').get()).docs, isEmpty);
   });
 
-  test('offline insufficient balance throws before queue', () async {
+  test('offline purchase over balance queues (negative allowed)', () async {
     final fake = FakeFirebaseFirestore();
     OfflineSyncService().firestore = fake;
     final svc = TransactionService(firestore: fake);
@@ -123,13 +123,15 @@ void main() {
       createdAt: DateTime.now(),
       createdBy: 'u',
     );
-    // using updateTransaction offline with insufficient should throw
-    expect(() => svc.updateTransaction(tx), throwsA(contains('Insufficient')));
+    // updating to a purchase requiring 100 while projected is 50 is allowed:
+    // collector balances may go negative and the shortfall auto-records.
+    final ok = await svc.updateTransaction(tx).then((_) => true);
+    expect(ok, isTrue);
     expect(
         OfflineCacheService()
             .getPendingOperations()
             .any((o) => o['opId'] == 't_new'),
-        isFalse);
+        isTrue);
   });
 
   test('updateTransaction offline queues and updates cache', () async {
@@ -187,7 +189,8 @@ void main() {
         200);
   });
 
-  test('offline delete of oversized distribution throws', () async {
+  test('offline delete of oversized distribution queues (negative allowed)',
+      () async {
     final fake = FakeFirebaseFirestore();
     OfflineSyncService().firestore = fake;
     final svc = TransactionService(firestore: fake);
@@ -222,19 +225,18 @@ void main() {
           createdAt: now,
           createdBy: 'u'),
     ]);
-    expect(() => svc.deleteTransaction('t_dist'),
-        throwsA(contains('Insufficient')));
+    final ok = await svc.deleteTransaction('t_dist').then((_) => true);
+    expect(ok, isTrue);
     expect(
         OfflineCacheService()
             .getPendingOperations()
             .any((o) => o['opId'] == 't_dist'),
-        isFalse);
-    // tx stays in cache since the delete was rejected
-    expect(
-        OfflineCacheService()
-            .getCachedTransactions()!
-            .any((t) => t.id == 't_dist'),
         isTrue);
+    // tx leaves the cache since the delete was accepted
+    expect(
+        (OfflineCacheService().getCachedTransactions() ?? const [])
+            .any((t) => t.id == 't_dist'),
+        isFalse);
   });
 
   test('deleteTransfer offline queues and removes from cache', () async {

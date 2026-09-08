@@ -431,4 +431,67 @@ void main() {
       isFalse,
     );
   });
+
+  test('purchase over balance queues and is allowed (negative balances)',
+      () async {
+    ConnectivityService().setOnlineForTest(true);
+    final fake = FakeFirebaseFirestore();
+    await fake.collection('workers').doc('w1').set({'currentBalance': 100});
+    OfflineSyncService().firestore = fake;
+    final service = TransactionService(firestore: fake);
+    MoneyTransaction tx(String id) => MoneyTransaction(
+          id: id,
+          workerId: 'w1',
+          workerName: 'W',
+          type: 'purchase',
+          amount: 1000,
+          createdAt: DateTime.now(),
+          createdBy: 'tester',
+        );
+    final docId = await service.addTransaction(tx(''));
+    expect(docId, isNotNull);
+  });
+
+  test('purchase deducts full amount and auto-records negative as debt',
+      () async {
+    ConnectivityService().setOnlineForTest(true);
+    final fake = FakeFirebaseFirestore();
+    await fake
+        .collection('workers')
+        .doc('w1')
+        .set({'currentBalance': 100, 'totalCoffeePurchased': 0, 'name': 'W'});
+    OfflineSyncService().firestore = fake;
+    final service = TransactionService(firestore: fake);
+    final docId = await service.addTransaction(
+      MoneyTransaction(
+        id: '',
+        workerId: 'w1',
+        workerName: 'W',
+        type: 'purchase',
+        amount: 1000,
+        createdAt: DateTime.now(),
+        createdBy: 'tester',
+      ),
+    );
+    final sync = OfflineSyncService();
+    sync.firestore = fake;
+    for (var i = 0; i < 40; i++) {
+      await sync.syncPendingOperations();
+      if (OfflineCacheService().getPendingOperations().isEmpty) break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    sync.dispose();
+    final worker =
+        await fake.collection('workers').doc('w1').get();
+    expect(worker.data()!['currentBalance'], -900);
+    expect(worker.data()!['totalCoffeePurchased'], 1000);
+    final txDoc =
+        await fake.collection('transactions').doc(docId!).get();
+    expect(txDoc.data()!['amount'], 1000);
+    final debts =
+        await fake.collection('debts').where('collectorId', isEqualTo: 'w1').get();
+    expect(debts.docs.length, 1);
+    expect(debts.docs.first.data()['forgivenAmount'], 900);
+    expect(debts.docs.first.data()['source'], 'balance');
+  });
 }

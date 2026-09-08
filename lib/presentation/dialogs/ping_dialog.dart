@@ -56,7 +56,7 @@ class _PingDialogState extends State<PingDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: theme.dialogBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       child: Container(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -72,7 +72,7 @@ class _PingDialogState extends State<PingDialog> {
                     height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                     ),
                     child: const Icon(
                       Icons.campaign,
@@ -86,7 +86,7 @@ class _PingDialogState extends State<PingDialog> {
                       widget.title,
                       style: TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: theme.textTheme.headlineMedium?.color,
                       ),
                     ),

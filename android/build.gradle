@@ -2,6 +2,13 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/TelegramMessenger/telegram-login-android")
+            credentials {
+                username = findProperty("gpr.user") ?: System.getenv("GITHUB_USERNAME")
+                password = findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
     }
 
     dependencies {
@@ -13,6 +20,13 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/TelegramMessenger/telegram-login-android")
+            credentials {
+                username = findProperty("gpr.user") ?: System.getenv("GITHUB_USERNAME")
+                password = findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
     }
 }
 

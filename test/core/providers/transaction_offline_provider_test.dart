@@ -158,7 +158,7 @@ void main() {
       () async {
     final p = await makeProvider();
     final before = p.todayDistributed; // makeProvider seeded 50
-    var deltaTx;
+    MoneyTransaction? deltaTx;
     var deltaDir = 0;
     p.onTransactionApplied = (tx, dir) {
       deltaTx = tx;
@@ -173,10 +173,10 @@ void main() {
     expect(p.todayDistributed, before + 300.0);
     expect(deltaTx, isNotNull);
     expect(deltaDir, 1);
-    expect(deltaTx.amount, 300.0);
+    expect(deltaTx!.amount, 300.0);
 
     // Worker balance card: applying -1 then +1 nets back to start (rollback
     // path uses the same primitives).
-    expect(deltaTx.workerId, 'w1');
+    expect(deltaTx!.workerId, 'w1');
   });
 }

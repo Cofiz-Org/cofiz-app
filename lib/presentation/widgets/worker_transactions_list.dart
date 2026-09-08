@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import '../../../core/models/transaction_model.dart';
+import '../../../core/models/debt_model.dart';
 import '../../../core/models/worker_model.dart';
 import '../../core/providers/transaction_provider.dart';
 import '../../core/providers/auth_provider.dart';
@@ -14,8 +14,12 @@ import '../../core/providers/audit_provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/number_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../screens/transaction/transaction_dialog.dart';
 import '../screens/transaction/collector_debts_screen.dart';
+import 'eth_date_picker_dialog.dart';
+import 'debt_tag_notes.dart';
 import 'offline_indicator.dart';
 import 'sync_outbox_banner.dart';
 import 'app_toast.dart';
@@ -36,13 +40,11 @@ class WorkerTransactionsList extends StatefulWidget {
 
 class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
   DateTime? _selectedDate;
-  int _itemsToShow = 20;
-  static const int _itemsPerLoad = 20;
 
   @override
   void initState() {
     super.initState();
-    // Load transactions for this worker
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<TransactionProvider>(context, listen: false)
           .loadWorkerTransactions(widget.workerId);
@@ -58,20 +60,18 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
     }
   }
 
-  Future<void> _loadMore(TransactionProvider provider) async {
-    setState(() => _itemsToShow += _itemsPerLoad);
-    await provider.loadMoreWorkerTransactions(widget.workerId);
-  }
+
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final provider = Provider.of<TransactionProvider>(context, listen: false);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: DateTime(now.year - 5),
-      lastDate: now,
-    );
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    DateTime? picked;
+    if (settings.calendarType == CalendarType.ethiopian) {
+      picked = await showEthDatePicker(context: context, initialDate: _selectedDate ?? now, firstDate: DateTime(now.year - 5), lastDate: now);
+    } else {
+      picked = await showThemedDatePicker(context: context, initialDate: _selectedDate ?? now, firstDate: DateTime(now.year - 5), lastDate: now);
+    }
     if (picked != null) {
       setState(() => _selectedDate = picked);
       provider.loadWorkerTransactionsForDay(widget.workerId, picked);
@@ -115,8 +115,8 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
     }
   }
 
-  /// Ask the admin for a reason when editing/deleting a locked transaction.
-  /// Returns null if the admin cancels.
+  
+  
   Future<String?> _promptOverrideReason({required String action}) async {
     final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController();
@@ -214,8 +214,8 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
     if (success) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final auditProvider = Provider.of<AuditProvider>(context, listen: false);
-      // Fire-and-forget: the audit op is queued locally, so the delete UX
-      // must never block (or fail) waiting on it.
+      
+      
       unawaited(auditProvider.logTransactionDeleted(
         userId: authProvider.user?.uid ?? 'unknown',
         userName:
@@ -249,7 +249,7 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Inline offline notice (no background) above the history.
+            
             const OfflineIndicator(
               datasets: [],
             ),
@@ -265,30 +265,34 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
                   ),
                 ),
                 const SyncOutboxBanner(),
-                // Debt button — to the left of the filter
-                IconButton(
-                  tooltip: 'Debt',
-                  icon: const Icon(Icons.receipt_long, color: AppColors.error),
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => CollectorDebtsScreen(collectorId: widget.worker.id, collectorName: widget.worker.name),
-                    ));
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: AppLocalizations.of(context)!.debtLabel,
+                      icon: const Icon(Icons.money_off_outlined, color: AppColors.primary),
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => CollectorDebtsScreen(collectorId: widget.worker.id, collectorName: widget.worker.name),
+                        ));
+                      },
+                    ),
+                    if (_selectedDate != null)
+                      TextButton.icon(
+                        onPressed: _clearDate,
+                        icon: const Icon(Icons.close, size: 16),
+                        label: Text(DateFormatter.formatDate(_selectedDate!)),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                      )
+                    else
+                      IconButton(
+                        tooltip: AppLocalizations.of(context)!.filterByDate,
+                        onPressed: _pickDate,
+                        icon: const Icon(Icons.filter_alt),
+                        color: AppColors.primary,
+                      ),
+                  ],
                 ),
-                if (_selectedDate != null)
-                  TextButton.icon(
-                    onPressed: _clearDate,
-                    icon: const Icon(Icons.close, size: 16),
-                    label: Text(DateFormat('MMM d, yyyy').format(_selectedDate!)),
-                    style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-                  )
-                else
-                  IconButton(
-                    tooltip: AppLocalizations.of(context)!.filterByDate,
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.filter_alt),
-                    color: AppColors.primary,
-                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -407,7 +411,7 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
 
                 const SizedBox(width: 12),
 
-                // Details
+                
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,17 +454,34 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${DateFormat('MMM d, h:mm a').format(transaction.createdAt)}'
-                        '${transaction.type == 'purchase' && transaction.notes != null && transaction.notes!.isNotEmpty ? ' · ${transaction.notes}' : ''}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? AppColors.textMutedDark
-                              : AppColors.textMutedLight,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Text(
+                            DateFormatter.formatDateTime(transaction.createdAt),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.textMutedDark
+                                  : AppColors.textMutedLight,
+                            ),
+                          ),
+                          if (transaction.type == 'purchase' &&
+                              Debt.cleanNotes(transaction.notes).isNotEmpty)
+                            Flexible(
+                              child: Text(
+                                ' · ${Debt.cleanNotes(transaction.notes)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? AppColors.textMutedDark
+                                      : AppColors.textMutedLight,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -468,24 +489,34 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
 
                 const SizedBox(width: 8),
 
-                // Amount
+                
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '${isPositive ? '+' : '-'}${AppLocalizations.of(context)?.currency ?? 'ETB'} ${transaction.amount.formatted}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: typeColor,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (Debt.debtTagAmount(transaction.notes) != null) ...[
+                          DebtTagChip(
+                            transactionId: transaction.id,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          '${isPositive ? '+' : '-'}${AppLocalizations.of(context)?.currency ?? 'ETB'} ${transaction.amount.formatted}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: typeColor,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (transaction.notes != null &&
-                        transaction.notes!.isNotEmpty &&
+                    if (Debt.cleanNotes(transaction.notes).isNotEmpty &&
                         transaction.type != 'purchase') ...[
                       const SizedBox(height: 4),
                       Text(
-                        transaction.notes!,
+                        Debt.cleanNotes(transaction.notes),
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).brightness == Brightness.dark
@@ -533,7 +564,7 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -624,7 +655,7 @@ class _WorkerTransactionsListState extends State<WorkerTransactionsList> {
     required String value,
   }) {
     return Material(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

@@ -1,8 +1,8 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Returns the signed-in user's email from Firebase Auth (authoritative),
-/// falling back to [fallback] when auth has none.
+import '../config/relay_config.dart';
+import 'auth_backend.dart';
+
 String? currentAccountEmail({String? fallback}) {
   final authEmail = FirebaseAuth.instance.currentUser?.email;
   if (authEmail != null && authEmail.isNotEmpty) return authEmail;
@@ -10,35 +10,43 @@ String? currentAccountEmail({String? fallback}) {
 }
 
 class EmailVerificationService {
-  FirebaseFunctions get _fns => FirebaseFunctions.instance;
+  AuthBackend get _backend => AuthBackend(
+        baseUrl: RelayConfig.relayUrl.isNotEmpty
+            ? RelayConfig.relayUrl
+            : 'https://cofiz.natanim.dev',
+        secret: RelayConfig.relaySecret,
+      );
 
-  /// Requests a verification code. The server derives the destination from
-  /// the caller's auth token, so [fallbackEmail] is informational only.
-  /// Throws [EmailVerificationException] with a user-friendly message on
-  /// failure (not-found = functions not deployed, resource-exhausted =
-  /// resend cooldown, failed-precondition = account has no email).
   Future<void> requestCode(String? fallbackEmail) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw EmailVerificationException('Please sign in first.');
+    }
     try {
-      await _fns
-          .httpsCallable('requestEmailVerification')
-          .call({'email': fallbackEmail ?? ''});
-    } on FirebaseFunctionsException catch (e) {
-      switch (e.code) {
-        case 'resource-exhausted':
+      await _backend.requestEmailCode(uid: uid);
+    } on AuthBackendException catch (e) {
+      switch (e.errorCode) {
+        case 'network_error':
+          throw EmailVerificationException(
+              'Network error. Check your connection and try again.');
+        case 'cooldown':
           throw EmailVerificationException(
               'Please wait a minute before requesting a new code.');
-        case 'failed-precondition':
+        case 'no_email':
           throw EmailVerificationException(
               'Your account has no email address to verify.');
-        case 'not-found':
-        case 'unimplemented':
+        case 'email_unavailable':
+        case 'email_send_failed':
           throw EmailVerificationException(
-              'Verification service unavailable. Is it deployed?');
-        case 'unauthenticated':
-          throw EmailVerificationException('Please sign in first.');
+              'Verification service unavailable. Try again later.');
+        case 'rate_limited':
+          throw EmailVerificationException(
+              'Too many requests. Try again later.');
         default:
           throw EmailVerificationException(
-              e.message ?? 'Could not send code. Try again.');
+              e.message.isNotEmpty
+                  ? e.message
+                  : 'Could not send code. Try again.');
       }
     } catch (_) {
       throw EmailVerificationException(
@@ -46,27 +54,30 @@ class EmailVerificationService {
     }
   }
 
-  /// Returns true when the code verified successfully. Throws
-  /// [EmailVerificationException] with friendly messages otherwise.
   Future<bool> verifyCode(String code) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw EmailVerificationException('Please sign in first.');
+    }
     try {
-      final res =
-          await _fns.httpsCallable('verifyEmailCode').call({'code': code});
-      return (res.data as Map)['verified'] == true;
-    } on FirebaseFunctionsException catch (e) {
-      switch (e.code) {
-        case 'deadline-exceeded':
-          throw EmailVerificationException('Code expired. Resend a new one.',
-              locked: true);
-        case 'resource-exhausted':
+      final ok = await _backend.verifyEmailCode(uid: uid, code: code);
+      return ok;
+    } on AuthBackendException catch (e) {
+      switch (e.errorCode) {
+        case 'network_error':
+          throw EmailVerificationException(
+              'Network error. Check your connection and try again.');
+        case 'too_many':
           throw EmailVerificationException('Too many attempts. Resend code.',
               locked: true);
-        case 'not-found':
+        case 'not_found':
           throw EmailVerificationException(
               'No code requested yet. Tap resend.');
+        case 'bad_code':
+          throw EmailVerificationException('Invalid code. Try again.');
         default:
           throw EmailVerificationException(
-              e.message ?? 'Invalid or expired code.');
+              e.message.isNotEmpty ? e.message : 'Invalid or expired code.');
       }
     } catch (_) {
       throw EmailVerificationException(
@@ -82,4 +93,3 @@ class EmailVerificationException implements Exception {
   @override
   String toString() => message;
 }
-
