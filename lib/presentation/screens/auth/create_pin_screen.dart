@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/lock_state_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/background_pattern.dart';
@@ -22,11 +24,53 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    for (int i = 0; i < 6; i++) {
+      _firstFocus[i].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_first[i].text.isEmpty && i > 0) {
+            _first[i - 1].clear();
+            _firstFocus[i - 1].requestFocus();
+            setState(() {});
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      };
+      _confirmFocus[i].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_confirm[i].text.isEmpty) {
+            if (i > 0) {
+              _confirm[i - 1].clear();
+              _confirmFocus[i - 1].requestFocus();
+            } else {
+              _firstFocus[5].requestFocus();
+              _first[5].clear();
+            }
+            setState(() {});
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      };
+    }
+  }
+
+  @override
   void dispose() {
-    for (final c in _first) c.dispose();
-    for (final c in _confirm) c.dispose();
-    for (final f in _firstFocus) f.dispose();
-    for (final f in _confirmFocus) f.dispose();
+    for (final c in _first) {
+      c.dispose();
+    }
+    for (final c in _confirm) {
+      c.dispose();
+    }
+    for (final f in _firstFocus) {
+      f.dispose();
+    }
+    for (final f in _confirmFocus) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -49,13 +93,16 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
       _error = null;
     });
     final lsp = context.read<LockStateProvider>();
+    final uid = context.read<AuthProvider>().user?.uid;
     try {
-      await lsp.pinService.setPin(a);
-      // Mark initialized
-      await lsp.initialize();
+      await lsp.pinService.setPin(a, uid: uid);
+      
+      await lsp.initialize(uid: uid);
       if (mounted) {
         AppToast.show(l10n.pinSaved, success: true);
-        Navigator.of(context).pop(true);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       setState(() => _error = e.toString().replaceFirst('Invalid argument(s): ', ''));
@@ -78,9 +125,10 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
             focusNode: fs[i],
             maxLength: 1,
             obscureText: true,
-            obscuringCharacter: '●',
+            obscuringCharacter: '*',
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -90,13 +138,13 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
               counterText: '',
               filled: true,
               fillColor: isDark ? AppColors.surfaceDark : Colors.white,
-              contentPadding: EdgeInsets.zero,
+              contentPadding: const EdgeInsets.only(left: 2),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(
                   color: hasValue
-                      ? AppColors.primary.withOpacity(0.6)
-                      : (isDark ? Colors.white24 : Colors.black.withOpacity(0.1)),
+                      ? AppColors.primary.withValues(alpha: 0.6)
+                      : (isDark ? Colors.white24 : Colors.black.withValues(alpha: 0.1)),
                   width: 1.4,
                 ),
               ),
@@ -106,7 +154,7 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.error.withOpacity(0.8)),
+                borderSide: BorderSide(color: AppColors.error.withValues(alpha: 0.8)),
               ),
             ),
             onChanged: (v) {
@@ -114,17 +162,11 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
               if (v.isNotEmpty && i < 5) {
                 fs[i + 1].requestFocus();
               } else if (v.isNotEmpty && i == 5) {
-                // auto-move to first confirm field if on first row
                 if (cs == _first) {
                   _confirmFocus[0].requestFocus();
                 }
               }
-              if (v.isEmpty && i > 0) {
-                // backspace handling via onChanged not perfect, but ok
-              }
-              // auto-submit when both rows full
               if (_collect(_first).length == 6 && _collect(_confirm).length == 6) {
-                // small delay for UX
                 Future.delayed(const Duration(milliseconds: 120), _submit);
               }
             },
@@ -154,18 +196,9 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 60),
-                    Align(
+                    const Align(
                       alignment: Alignment.center,
-                      child: Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                        ),
-                        child: const Icon(Icons.lock_rounded, size: 36, color: AppColors.primary),
-                      ),
+                      child: Icon(Icons.lock_rounded, size: 36, color: AppColors.primary),
                     ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(0.9, 0.9)),
                     const SizedBox(height: 20),
                     Text(
@@ -210,9 +243,9 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(isDark ? 0.15 : 0.08),
+                          color: AppColors.error.withValues(alpha: isDark ? 0.15 : 0.08),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.error.withOpacity(0.25)),
+                          border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
                         ),
                         child: Row(
                           children: [

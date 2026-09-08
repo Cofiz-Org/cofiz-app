@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
+import '../../../core/services/biometric_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/lock_state_provider.dart';
 import '../../../core/providers/phone_otp_auth_provider.dart';
 import '../../../l10n/app_localizations.dart';
@@ -21,26 +23,48 @@ class _PinLockScreenState extends State<PinLockScreen> {
   bool _submitting = false;
   String? _error;
   bool _biometricAvailable = false;
+  final BiometricService _biometricService = BiometricService();
 
   @override
   void initState() {
     super.initState();
     _checkBiometric();
+    for (int i = 0; i < 6; i++) {
+      _focus[i].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_digits[i].text.isEmpty && i > 0) {
+            _digits[i - 1].clear();
+            _focus[i - 1].requestFocus();
+            setState(() {});
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      };
+    }
   }
 
   Future<void> _checkBiometric() async {
     try {
-      final auth = LocalAuthentication();
-      final can = await auth.canCheckBiometrics;
-      final available = await auth.isDeviceSupported();
-      if (mounted) setState(() => _biometricAvailable = can && available);
+      final available = await _biometricService.isAvailable();
+      if (!mounted) return;
+      if (!available) return;
+      final hasPin = await context
+          .read<LockStateProvider>()
+          .pinService
+          .hasPin(uid: context.read<AuthProvider>().user?.uid);
+      if (mounted) setState(() => _biometricAvailable = hasPin);
     } catch (_) {}
   }
 
   @override
   void dispose() {
-    for (final c in _digits) c.dispose();
-    for (final f in _focus) f.dispose();
+    for (final c in _digits) {
+      c.dispose();
+    }
+    for (final f in _focus) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -48,6 +72,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
     final code = _digits.map((c) => c.text).join();
     if (code.length != 6) return;
     final lsp = context.read<LockStateProvider>();
+    final uid = context.read<AuthProvider>().user?.uid;
     if (lsp.isInCooldown) {
       final secs = lsp.cooldownRemaining?.inSeconds ?? 0;
       setState(() => _error = AppLocalizations.of(context)!.cooldownWait(secs.toString()));
@@ -57,18 +82,21 @@ class _PinLockScreenState extends State<PinLockScreen> {
       _submitting = true;
       _error = null;
     });
-    final ok = await lsp.attemptUnlock(code);
+    final ok = await lsp.attemptUnlock(code, uid: uid);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     if (ok) {
-      // Pop handled by caller — PinLockScreen is shown as overlay via lock state
-      // For now, just clear fields. Parent (AuthGate) will rebuild to home.
+      
+      
       setState(() => _submitting = false);
       return;
     }
     if (lsp.shouldForceSignOut) {
       AppToast.show(l10n.pinTooMany);
       await context.read<PhoneOtpAuthProvider>().signOut();
+      if (mounted) {
+        await context.read<AuthProvider>().signOut();
+      }
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
       return;
     }
@@ -83,21 +111,27 @@ class _PinLockScreenState extends State<PinLockScreen> {
     setState(() {
       _error = l10n.pinIncorrect;
       _submitting = false;
-      // clear for retry
-      for (final c in _digits) c.clear();
+      
+      for (final c in _digits) {
+        c.clear();
+      }
       _focus[0].requestFocus();
     });
   }
 
   Future<void> _useBiometric() async {
-    final auth = LocalAuthentication();
     try {
-      final ok = await auth.authenticate(
+      final ok = await _biometricService.authenticate(
         localizedReason: 'Unlock Cofiz',
-        biometricOnly: true,
       );
       if (ok && mounted) {
-        context.read<LockStateProvider>().unlockWithBiometric();
+        final unlocked = await context
+            .read<LockStateProvider>()
+            .unlockWithBiometric(
+                uid: context.read<AuthProvider>().user?.uid);
+        if (!unlocked && mounted) {
+          setState(() => _error = 'Biometric failed');
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'Biometric failed');
@@ -125,16 +159,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                   child: Column(
                     children: [
                       const SizedBox(height: 24),
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                        ),
-                        child: const Icon(Icons.lock_rounded, size: 36, color: AppColors.primary),
-                      ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.92, 0.92)),
+                      const Icon(Icons.lock_rounded, size: 36, color: AppColors.primary).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.92, 0.92)),
                       const SizedBox(height: 16),
                       Text(
                         l10n.pinLockTitle,
@@ -167,9 +192,10 @@ class _PinLockScreenState extends State<PinLockScreen> {
                               focusNode: _focus[i],
                               maxLength: 1,
                               obscureText: true,
-                              obscuringCharacter: '●',
+                              obscuringCharacter: '*',
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
+                              textAlignVertical: TextAlignVertical.center,
                               enabled: !_submitting && !lsp.isInCooldown,
                               style: TextStyle(
                                 fontSize: 20,
@@ -180,15 +206,15 @@ class _PinLockScreenState extends State<PinLockScreen> {
                                 counterText: '',
                                 filled: true,
                                 fillColor: isDark ? AppColors.surfaceDark : Colors.white,
-                                contentPadding: EdgeInsets.zero,
+                                contentPadding: const EdgeInsets.only(left: 2),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: BorderSide(
                                     color: isError
-                                        ? AppColors.error.withOpacity(0.7)
+                                        ? AppColors.error.withValues(alpha: 0.7)
                                         : hasValue
-                                            ? AppColors.primary.withOpacity(0.6)
-                                            : (isDark ? Colors.white24 : Colors.black.withOpacity(0.1)),
+                                            ? AppColors.primary.withValues(alpha: 0.6)
+                                            : (isDark ? Colors.white24 : Colors.black.withValues(alpha: 0.1)),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
@@ -214,19 +240,35 @@ class _PinLockScreenState extends State<PinLockScreen> {
                       ).animate().fadeIn(delay: 180.ms).slideY(begin: 0.06, end: 0),
                       if (_error != null) ...[
                         const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(isDark ? 0.14 : 0.07),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.error.withOpacity(0.25)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline, size: 18, color: AppColors.error),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(_error!, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.error))),
-                            ],
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 260),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(
+                                    alpha: isDark ? 0.14 : 0.07),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: AppColors.error
+                                        .withValues(alpha: 0.25)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      size: 18, color: AppColors.error),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                      child: Text(_error!,
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                  color: AppColors.error))),
+                                ],
+                              ),
+                            ),
                           ),
                         ).animate().shake(duration: 350.ms),
                       ],
@@ -246,7 +288,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                             icon: const Icon(Icons.fingerprint, color: AppColors.primary),
                             label: Text(l10n.pinUseBiometric, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: isDark ? Colors.white24 : Colors.black.withOpacity(0.12)),
+                              side: BorderSide(color: isDark ? Colors.white24 : Colors.black.withValues(alpha: 0.12)),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
                             ),
@@ -259,6 +301,9 @@ class _PinLockScreenState extends State<PinLockScreen> {
                             ? null
                             : () async {
                                 await context.read<PhoneOtpAuthProvider>().signOut();
+                                if (context.mounted) {
+                                  await context.read<AuthProvider>().signOut();
+                                }
                                 if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                               },
                         style: TextButton.styleFrom(
