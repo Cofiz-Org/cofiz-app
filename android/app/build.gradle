@@ -44,8 +44,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug keystore -> original native-login registration.
+            buildConfigField "String", "TG_LOGIN_HOST", '"app673257438-login.tg.dev"'
+        }
         release {
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            // Release keystore -> BotFather native-login registration for the release SHA-256.
+            buildConfigField "String", "TG_LOGIN_HOST", '"app3441384960-login.tg.dev"'
         }
     }
 }
