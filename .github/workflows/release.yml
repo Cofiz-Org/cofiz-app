@@ -18,6 +18,8 @@ jobs:
   verify:
     needs: guard
     runs-on: ubuntu-latest
+    env:
+      TZ: Africa/Addis_Ababa
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
