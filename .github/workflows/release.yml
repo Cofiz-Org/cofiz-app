@@ -22,6 +22,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { flutter-version: '3.47.x' }
+      - name: Materialize Firebase config
+        env:
+          FIREBASE_OPTIONS_B64: ${{ secrets.FIREBASE_OPTIONS_B64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          test -n "$FIREBASE_OPTIONS_B64" || { echo "FIREBASE_OPTIONS_B64 missing"; exit 1; }
+          test -n "$GOOGLE_SERVICES_JSON" || { echo "GOOGLE_SERVICES_JSON missing"; exit 1; }
+          echo "$FIREBASE_OPTIONS_B64" | base64 -d > lib/firebase_options.dart
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
       - run: flutter analyze
       - run: flutter test
   bootstrap:
