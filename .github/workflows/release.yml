@@ -74,9 +74,16 @@ jobs:
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_SECRET: ${{ secrets.RELAY_SECRET }}
+          FIREBASE_OPTIONS_B64: ${{ secrets.FIREBASE_OPTIONS_B64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           test -n "$KEYSTORE_B64" || { echo "keystore secret missing"; exit 1; }
+          test -n "$FIREBASE_OPTIONS_B64" || { echo "FIREBASE_OPTIONS_B64 missing"; exit 1; }
+          test -n "$GOOGLE_SERVICES_JSON" || { echo "GOOGLE_SERVICES_JSON missing"; exit 1; }
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cofiz-release.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cofiz-release.jks"
+          echo "$FIREBASE_OPTIONS_B64" | base64 -d > lib/firebase_options.dart
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$RUNNER_TEMP/cofiz-release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
             > android/key.properties
