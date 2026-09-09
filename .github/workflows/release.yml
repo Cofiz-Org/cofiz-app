@@ -54,7 +54,7 @@ jobs:
           STORE_PASS="$(openssl rand -hex 16)"
           KEY_PASS="$(openssl rand -hex 16)"
           keytool -genkey -v -keystore cofiz-release.jks -alias cofiz \
-            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
             -dname "CN=Cofiz, OU=Mobile, O=Cofiz-Org, C=ET"
           printf 'storeFile=cofiz-release.jks\nstorePassword=%s\nkeyAlias=cofiz\nkeyPassword=%s\n' \
