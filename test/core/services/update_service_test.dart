@@ -217,7 +217,7 @@ void main() {
 
   group('ReleaseInfo json round-trip', () {
     test('survives cache encode/decode, rejects junk', () {
-      final r = ReleaseInfo(
+      const r = ReleaseInfo(
         version: 'v1.2.0',
         tag: 'v1.2.0',
         notes: 'n',
@@ -228,6 +228,26 @@ void main() {
           ReleaseInfo.fromJson(jsonDecode(jsonEncode(r.toJson())));
       expect(back!.apkUrl, r.apkUrl);
       expect(ReleaseInfo.fromJson({'version': '', 'apkUrl': ''}), isNull);
+    });
+  });
+
+  group('parseMinVersion', () {
+    test('parses marker', () {
+      expect(parseMinVersion('Fixes\n<!-- min-version: 1.2.0 -->'), '1.2.0');
+    });
+    test('absent marker yields empty', () {
+      expect(parseMinVersion('Just notes'), '');
+    });
+    test('malformed marker yields empty', () {
+      expect(parseMinVersion('<!-- min-version: soon -->'), '');
+    });
+    test('surfaces on parsed releases', () async {
+      final http = FakeUpdateHttp()
+        ..releaseJson = releaseJson(tag: 'v1.3.0');
+      http.releaseJson!['body'] = 'Big change\n<!-- min-version: 1.2.0 -->';
+      final svc = await makeService(http);
+      final r = await svc.checkForUpdates(currentVersion: '1.1.0');
+      expect(r!.minVersion, '1.2.0');
     });
   });
 }

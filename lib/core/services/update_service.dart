@@ -14,12 +14,18 @@ String get defaultUpdateRepo {
 const String _kApiBase = 'https://api.github.com';
 const Duration _kCheckInterval = Duration(hours: 24);
 
+String parseMinVersion(String body) {
+  final m = RegExp(r'<!--\s*min-version:\s*([0-9][0-9A-Za-z.\-+]*)\s*-->').firstMatch(body);
+  return m == null ? '' : m.group(1)!;
+}
+
 class ReleaseInfo {
   final String version;
   final String tag;
   final String notes;
   final String apkUrl;
   final String htmlUrl;
+  final String minVersion;
   final DateTime? publishedAt;
 
   const ReleaseInfo({
@@ -28,6 +34,7 @@ class ReleaseInfo {
     required this.notes,
     required this.apkUrl,
     required this.htmlUrl,
+    this.minVersion = '',
     this.publishedAt,
   });
 
@@ -37,6 +44,7 @@ class ReleaseInfo {
         'notes': notes,
         'apkUrl': apkUrl,
         'htmlUrl': htmlUrl,
+        'minVersion': minVersion,
         'publishedAt': publishedAt?.millisecondsSinceEpoch,
       };
 
@@ -46,12 +54,14 @@ class ReleaseInfo {
       final apkUrl = json['apkUrl']?.toString() ?? '';
       if (version.isEmpty || apkUrl.isEmpty) return null;
       final publishedMs = json['publishedAt'];
+      final notes = json['notes']?.toString() ?? '';
       return ReleaseInfo(
         version: version,
         tag: json['tag']?.toString() ?? '',
-        notes: json['notes']?.toString() ?? '',
+        notes: notes,
         apkUrl: apkUrl,
         htmlUrl: json['htmlUrl']?.toString() ?? '',
+        minVersion: json['minVersion']?.toString() ?? parseMinVersion(notes),
         publishedAt: publishedMs is int
             ? DateTime.fromMillisecondsSinceEpoch(publishedMs)
             : null,
@@ -226,12 +236,14 @@ class UpdateService {
       }
       if (apkUrl.isEmpty) return null;
       final published = json['published_at']?.toString();
+      final notes = json['body']?.toString() ?? '';
       return ReleaseInfo(
         version: tag,
         tag: tag,
-        notes: json['body']?.toString() ?? '',
+        notes: notes,
         apkUrl: apkUrl,
         htmlUrl: json['html_url']?.toString() ?? '',
+        minVersion: parseMinVersion(notes),
         publishedAt:
             published != null ? DateTime.tryParse(published) : null,
       );
