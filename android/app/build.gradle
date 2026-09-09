@@ -25,6 +25,10 @@ android {
         jvmTarget = JavaVersion.VERSION_17
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.aman.cofiz"
         minSdkVersion = flutter.minSdkVersion
