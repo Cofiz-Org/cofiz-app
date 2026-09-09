@@ -120,7 +120,8 @@ jobs:
       GH_TOKEN: ${{ secrets.SECRETS_PAT }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: ${{ github.ref_name }} }
+        with:
+          ref: ${{ github.ref_name }}
       - uses: actions/download-artifact@v4
         with: { name: release-apk, path: dist }
       - run: |
