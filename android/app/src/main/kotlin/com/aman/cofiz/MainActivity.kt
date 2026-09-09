@@ -14,7 +14,7 @@ class MainActivity : FlutterActivity() {
 
     private val channelName = "com.cofiz.telegram_login"
     private val clientId = "8777989279"
-    private val redirectHost = "app673257438-login.tg.dev"
+    private val redirectHost = BuildConfig.TG_LOGIN_HOST
     private val redirectPath = "/tglogin"
     private var pendingResult: MethodChannel.Result? = null
     private var loginInProgress = false
