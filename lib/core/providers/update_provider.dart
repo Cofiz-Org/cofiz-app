@@ -52,6 +52,14 @@ class UpdateProvider with ChangeNotifier {
       _status == UpdateStatus.downloading ||
       _status == UpdateStatus.ready;
 
+  bool get isForceBlocked {
+    final r = _release;
+    if (r == null || r.minVersion.isEmpty || _currentVersion.isEmpty) {
+      return false;
+    }
+    return compareVersions(_currentVersion, r.minVersion) < 0;
+  }
+
   Future<UpdateService> _readyService() async {
     final existing = _service;
     if (existing != null) return existing;
@@ -135,6 +143,7 @@ class UpdateProvider with ChangeNotifier {
   }
 
   Future<void> dismiss() async {
+    if (isForceBlocked) return;
     final release = _release;
     if (release == null) return;
     final service = await _readyService();

@@ -1803,4 +1803,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get showLess => 'Show less';
+
+  @override
+  String get updateRequired => 'Update required';
 }

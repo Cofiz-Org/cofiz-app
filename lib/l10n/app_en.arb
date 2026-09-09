@@ -616,5 +616,6 @@
   "updatePushedTitle": "New Cofiz update",
   "updatePushedBody": "Version {version} is ready to install",
   "showMore": "Show more",
-  "showLess": "Show less"
+  "showLess": "Show less",
+  "updateRequired": "Update required"
 }

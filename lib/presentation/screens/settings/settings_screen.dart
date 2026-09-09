@@ -13,6 +13,7 @@ import '../../../core/providers/density_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/custom_header.dart';
 import '../../widgets/app_update_card.dart';
+import '../../widgets/force_update_gate.dart';
 import 'profile_edit_screen.dart';
 import 'notification_settings_screen.dart';
 import 'business_settings_screen.dart';
@@ -29,6 +30,9 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    if (Provider.of<UpdateProvider>(context).isForceBlocked) {
+      return const ForceUpdateGate();
+    }
     final settingsProvider = Provider.of<SettingsProvider>(context);
     final densityProvider = Provider.of<DensityProvider>(context);
     final isDark = themeProvider.themeMode == ThemeMode.dark;
@@ -37,6 +41,9 @@ class SettingsScreen extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.isAdmin;
 
+    if (Provider.of<UpdateProvider>(context).isForceBlocked) {
+      return const ForceUpdateGate();
+    }
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Column(

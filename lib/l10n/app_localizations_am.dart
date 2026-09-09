@@ -1787,4 +1787,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get showLess => 'አሳንስ';
+
+  @override
+  String get updateRequired => 'ማሻሻያ ያስፈልጋል';
 }

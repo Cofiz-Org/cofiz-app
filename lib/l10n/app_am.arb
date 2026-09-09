@@ -616,5 +616,6 @@
   "updatePushedTitle": "አዲስ የCofiz ማሻሻያ",
   "updatePushedBody": "ስሪት {version} ለመጫን ዝግጁ ነው",
   "showMore": "ተጨማሪ አሳይ",
-  "showLess": "አሳንስ"
+  "showLess": "አሳንስ",
+  "updateRequired": "ማሻሻያ ያስፈልጋል"
 }
