@@ -1,0 +1,104 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches pubspec
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          test "$TAG" = "$VER" || { echo "tag $TAG != pubspec $VER"; exit 1; }
+  verify:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.35.x' }
+      - run: flutter analyze
+      - run: flutter test
+  bootstrap:
+    needs: verify
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SECRETS_PAT }}
+    steps:
+      - name: Generate eternal key once
+        run: |
+          if gh secret list --repo ${{ github.repository }} | grep -q ANDROID_KEYSTORE_BASE64; then
+            echo "keystore present, skipping bootstrap"
+            exit 0
+          fi
+          STORE_PASS="$(openssl rand -hex 16)"
+          KEY_PASS="$(openssl rand -hex 16)"
+          keytool -genkey -v -keystore cofiz-release.jks -alias cofiz \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
+            -dname "CN=Cofiz, OU=Mobile, O=Cofiz-Org, C=ET"
+          printf 'storeFile=cofiz-release.jks\nstorePassword=%s\nkeyAlias=cofiz\nkeyPassword=%s\n' \
+            "$STORE_PASS" "$KEY_PASS" > keystore-passwords.txt
+          gh secret set ANDROID_KEYSTORE_BASE64 --repo ${{ github.repository }} < <(base64 -w0 cofiz-release.jks)
+          gh secret set ANDROID_KEY_ALIAS --repo ${{ github.repository }} --body cofiz
+          gh secret set ANDROID_STORE_PASSWORD --repo ${{ github.repository }} --body "$STORE_PASS"
+          gh secret set ANDROID_KEY_PASSWORD --repo ${{ github.repository }} --body "$KEY_PASS"
+      - name: Upload one-time backup
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystore-backup-DOWNLOAD-AND-DELETE
+          path: |
+            cofiz-release.jks
+            keystore-passwords.txt
+          retention-days: 1
+  build:
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.35.x' }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Write env and signing files
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_SECRET: ${{ secrets.RELAY_SECRET }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "keystore secret missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cofiz-release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/cofiz-release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
+            > android/key.properties
+          printf 'RELAY_URL=%s\nRELAY_SECRET=%s\nTELEGRAM_BOT_ID=8777989279\nUPDATE_REPO=cofiz-org/cofiz-dist\n' \
+            "$RELAY_URL" "$RELAY_SECRET" > .env
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SECRETS_PAT }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: release-apk, path: dist }
+      - run: |
+          mv dist/app-release.apk "dist/cofiz-${GITHUB_REF_NAME}.apk"
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo cofiz-org/cofiz-dist \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file CHANGELOG_NOTES.md \
+            "dist/cofiz-${GITHUB_REF_NAME}.apk"
