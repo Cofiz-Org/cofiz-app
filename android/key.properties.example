@@ -1,0 +1,4 @@
+storeFile=/absolute/path/to/cofiz-release.jks
+storePassword=CHANGE_ME
+keyAlias=cofiz
+keyPassword=CHANGE_ME
