@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:cofiz/core/models/debt_model.dart';
 import 'package:cofiz/core/providers/debt_provider.dart';
 import 'package:cofiz/core/services/connectivity_service.dart';
@@ -10,6 +12,7 @@ import 'package:cofiz/core/services/debt_service.dart';
 import 'package:cofiz/core/services/notification_trigger_service.dart';
 import 'package:cofiz/core/services/offline_cache_service.dart';
 import 'package:cofiz/core/services/offline_sync_service.dart';
+import 'package:cofiz/core/services/push_relay_service.dart';
 
 void main() {
   late Directory tempDir;
@@ -34,7 +37,18 @@ void main() {
 
   DebtProvider provider() => DebtProvider(
         debtService: DebtService(firestore: fake),
-        notificationService: NotificationTriggerService(firestore: fake),
+        // Stub the push relay: the shared service would POST to the real
+        // relay URL from .env, making this suite network-dependent.
+        notificationService: NotificationTriggerService(
+          firestore: fake,
+          pushRelay: PushRelayService(
+            firestore: fake,
+            httpClient: MockClient(
+                (request) async => http.Response('{"sent":true}', 200)),
+            relayUrl: 'https://relay.example.com/push',
+            relaySecret: 'secret123',
+          ),
+        ),
       );
 
   Future<Debt> seedDebt(String collector, double forgiven) async {
