@@ -148,13 +148,6 @@ class SettingsProvider with ChangeNotifier {
 
     if (value) {
       await NotificationService().requestPermissions();
-      // Schedule daily reminder at 6 PM
-      await NotificationService().scheduleDailyNotification(
-        id: 999,
-        title: 'Daily Summary',
-        body: 'Don\'t forget to check today\'s transactions.',
-        time: const TimeOfDay(hour: 18, minute: 0),
-      );
     } else {
       await NotificationService().cancelAll();
     }
