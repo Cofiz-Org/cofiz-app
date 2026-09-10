@@ -34,7 +34,7 @@ void main() {
       });
     }
 
-    test('posts Cofiz title/body/type with relay secret header', () async {
+    test('posts caller title/body/type with relay secret header', () async {
       await seedUser('u1');
       final ok = await service().sendPush(
         targetUserId: 'u1',
@@ -48,7 +48,7 @@ void main() {
       expect(req.headers['X-Relay-Secret'], 'secret123');
       final payload = jsonDecode(req.body) as Map<String, dynamic>;
       expect(payload['targetUserId'], 'u1');
-      expect(payload['title'], 'Cofiz');
+      expect(payload['title'], 'Money Received');
       expect(payload['body'], 'You received ETB 100');
       expect(payload['type'], 'moneyDistributed');
     });
