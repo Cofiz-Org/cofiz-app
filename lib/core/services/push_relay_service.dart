@@ -80,7 +80,7 @@ class PushRelayService {
       }
       final payload = <String, dynamic>{
         'targetUserId': targetUserId,
-        'title': 'Cofiz',
+        'title': title,
         'body': body,
         'type': type,
       };
