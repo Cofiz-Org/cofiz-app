@@ -175,7 +175,7 @@ class FCMService {
       final type = message.data['type']?.toString() ?? 'info';
       NotificationService().showNotification(
         id: message.hashCode,
-        title: 'Cofiz',
+        title: notification.title ?? 'Cofiz',
         body: notification.body ?? '',
         payload: jsonEncode(
             {'type': type, 'data': _extrasOf(message.data)}),
