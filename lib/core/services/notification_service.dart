@@ -2,9 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     as fln;
-import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../utils/app_navigator.dart';
 
@@ -20,8 +18,6 @@ class NotificationService {
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-
-    tz.initializeTimeZones();
 
     // Create the channel FCM pushes target (functions payload references
     // 'cofiz_main_channel'). Without it Android 8+ falls back to a silent
@@ -126,62 +122,6 @@ class NotificationService {
     );
 
     await _notificationsPlugin.show(id, title, body, details, payload: payload);
-  }
-
-  // Schedule notification (e.g. for reminders)
-  Future<void> scheduleNotification({
-    required int id,
-    required String title,
-    required String body,
-    required DateTime scheduledDate,
-  }) async {
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledDate, tz.local),
-      const fln.NotificationDetails(
-        android: fln.AndroidNotificationDetails(
-          'cofiz_reminders',
-          'Reminders',
-          channelDescription: 'Scheduled reminders',
-          importance: fln.Importance.high,
-          priority: fln.Priority.high,
-        ),
-      ),
-      androidScheduleMode: fln.AndroidScheduleMode.exactAllowWhileIdle,
-    );
-  }
-
-  // Daily Summary
-  Future<void> scheduleDailyNotification({
-    required int id,
-    required String title,
-    required String body,
-    required TimeOfDay time,
-  }) async {
-    final now = DateTime.now();
-    var schedule =
-        DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    if (schedule.isBefore(now)) {
-      schedule = schedule.add(const Duration(days: 1));
-    }
-
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(schedule, tz.local),
-      const fln.NotificationDetails(
-        android: fln.AndroidNotificationDetails(
-          'cofiz_daily',
-          'Daily Updates',
-          importance: fln.Importance.defaultImportance,
-        ),
-      ),
-      androidScheduleMode: fln.AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: fln.DateTimeComponents.time, // Recurring daily
-    );
   }
 
   Future<void> cancelAll() async {
