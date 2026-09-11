@@ -7,6 +7,7 @@ import 'package:cofiz/core/models/transaction_model.dart';
 import 'package:cofiz/core/providers/transaction_provider.dart';
 import 'package:cofiz/core/services/connectivity_service.dart';
 import 'package:cofiz/core/services/offline_cache_service.dart';
+import 'package:cofiz/core/services/offline_sync_service.dart';
 import 'package:cofiz/core/services/transaction_service.dart';
 
 MoneyTransaction tx(String id, {bool approved = false, String? transferId}) {
@@ -94,5 +95,41 @@ void main() {
 
     expect(ok, isTrue);
     expect(provider.workerTransactions.every((t) => t.approved), isTrue);
+  });
+
+  test('purchase above daily price stores snapshot and flag', () async {
+    ConnectivityService().setOnlineForTest(true);
+    final fake = FakeFirebaseFirestore();
+    await fake.collection('workers').doc('w1').set({
+      'name': 'Alice',
+      'currentBalance': 10000.0,
+    });
+    OfflineSyncService().firestore = fake;
+    final provider = TransactionProvider(
+        transactionService: TransactionService(firestore: fake));
+    final id = await provider.recordCoffeePurchase(
+      workerId: 'w1',
+      workerName: 'Alice',
+      amount: 4000,
+      createdBy: 'admin1',
+      coffeeType: 'wet',
+      weight: 10,
+      pricePerKg: 400,
+      dailyPriceAtSale: 380,
+      aboveDailyPrice: true,
+    );
+    expect(id, isNotNull);
+    Map<String, dynamic>? data;
+    for (var i = 0; i < 40; i++) {
+      await OfflineSyncService().syncPendingOperations();
+      final snap = await fake.collection('transactions').doc(id!).get();
+      if (snap.exists) {
+        data = snap.data();
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(data?['dailyPriceAtSale'], 380);
+    expect(data?['aboveDailyPrice'], isTrue);
   });
 }
