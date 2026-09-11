@@ -26,6 +26,8 @@ class AppNavigator {
         return null;
       case 'app_update':
         return const SettingsScreen();
+      case 'dailyPriceSet':
+        return const NotificationsScreen();
       case 'debtRecorded':
         final collectorId = data['collectorId'] ?? '';
         if (collectorId.isEmpty ||
