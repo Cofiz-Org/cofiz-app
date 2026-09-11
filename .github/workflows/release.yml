@@ -126,8 +126,12 @@ jobs:
         with: { name: release-apk, path: dist }
       - run: |
           mv dist/app-release.apk "dist/cofiz-${GITHUB_REF_NAME}.apk"
+          # Release body = this tag's section only (plain text): keeps push,
+          # bell, and update-card notes short and current-version-only.
+          awk -v tag="${GITHUB_REF_NAME}" '$0 == "## " tag {capture=1; next} /^## / {capture=0} capture {print}' CHANGELOG_NOTES.md | sed -e 's/^##* *//' -e 's/^[*-] //' > dist/NOTES.txt
+          test -s dist/NOTES.txt || { echo "no changelog section for ${GITHUB_REF_NAME}"; exit 1; }
           gh release create "${GITHUB_REF_NAME}" \
             --repo cofiz-org/cofiz-dist \
             --title "${GITHUB_REF_NAME}" \
-            --notes-file CHANGELOG_NOTES.md \
+            --notes-file dist/NOTES.txt \
             "dist/cofiz-${GITHUB_REF_NAME}.apk"
