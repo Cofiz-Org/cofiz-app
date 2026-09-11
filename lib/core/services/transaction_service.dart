@@ -234,6 +234,8 @@ class TransactionService {
       'pricePerKg': transaction.pricePerKg,
       'commissionAmount': transaction.commissionAmount,
       'forgivenAmount': transaction.forgivenAmount,
+      'dailyPriceAtSale': transaction.dailyPriceAtSale,
+      'aboveDailyPrice': transaction.aboveDailyPrice,
       'queuedAt': DateTime.now().toIso8601String(),
       'attempts': 0,
     });
@@ -260,6 +262,8 @@ class TransactionService {
       toWorkerName: transaction.toWorkerName,
       transferId: transaction.transferId,
       transferRole: transaction.transferRole,
+      dailyPriceAtSale: transaction.dailyPriceAtSale,
+      aboveDailyPrice: transaction.aboveDailyPrice,
     );
     await OfflineCacheService().cacheTransactions([...cached, optimistic]);
     
