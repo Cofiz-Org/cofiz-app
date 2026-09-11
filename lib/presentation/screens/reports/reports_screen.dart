@@ -1383,7 +1383,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       case 'jenfel':
         return l10n?.jenfel ?? 'Dried';
       case 'yetatebe':
-        return l10n?.yetatebe ?? 'Washed';
+      case 'wet':
+        return l10n?.wet ?? 'Wet';
       case 'special':
         return l10n?.special ?? 'Special';
       default:
@@ -1396,6 +1397,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       case 'jenfel':
         return Colors.brown;
       case 'yetatebe':
+      case 'wet':
         return Colors.orange;
       case 'special':
         return Colors.amber;
