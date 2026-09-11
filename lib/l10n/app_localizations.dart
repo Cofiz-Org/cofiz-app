@@ -620,11 +620,11 @@ abstract class AppLocalizations {
   /// **'Dried'**
   String get jenfel;
 
-  /// No description provided for @yetatebe.
+  /// No description provided for @wet.
   ///
   /// In en, this message translates to:
-  /// **'Washed'**
-  String get yetatebe;
+  /// **'Wet'**
+  String get wet;
 
   /// No description provided for @special.
   ///
@@ -2203,6 +2203,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coffee Type *'**
   String get coffeeTypeLabel;
+
+  /// No description provided for @dailyPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily price'**
+  String get dailyPrice;
+
+  /// No description provided for @setDailyPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set daily price'**
+  String get setDailyPrice;
+
+  /// No description provided for @priceNotSetYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s price not set yet'**
+  String get priceNotSetYet;
+
+  /// No description provided for @aboveDailyPriceWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Above today\'s {type} price of {price}/kg'**
+  String aboveDailyPriceWarning(Object price, Object type);
+
+  /// No description provided for @dailyPriceSetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s coffee prices are set'**
+  String get dailyPriceSetTitle;
 
   /// No description provided for @quantityKgLabel.
   ///
