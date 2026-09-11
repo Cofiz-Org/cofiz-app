@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/daily_price_provider.dart';
+import '../../../core/services/notification_trigger_service.dart';
 import '../../../core/providers/worker_provider.dart';
 import '../../../core/providers/transaction_provider.dart';
 import '../../../core/providers/income_provider.dart';
@@ -14,6 +17,8 @@ import '../../../main.dart';
 import '../../dialogs/ping_dialog.dart';
 import '../../widgets/activity_feed_list.dart';
 import '../../widgets/notification_badge.dart';
+import '../../widgets/daily_price_chip.dart';
+import '../../widgets/daily_price_modal.dart';
 import '../notifications/notifications_screen.dart';
 import '../income/company_income_screen.dart';
 import '../expense/expenses_screen.dart';
@@ -129,6 +134,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               );
                             },
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        DailyPriceChip(
+                          isAdmin: authProvider.appUser?.role.canManagePrices ??
+                              false,
+                          onEditRequested: () async {
+                            final saved =
+                                await showDailyPriceModal(context);
+                            if (saved == null || !context.mounted) return;
+                            final prices = Provider.of<DailyPriceProvider>(
+                                context,
+                                listen: false);
+                            final name = authProvider.appUser?.displayName ??
+                                'Admin';
+                            unawaited(NotificationTriggerService()
+                                .notifyDailyPriceSet(
+                              setByName: name,
+                              prices: prices.prices,
+                              senderId: authProvider.appUser?.uid,
+                            ));
+                          },
                         ),
                       ],
                     ),
