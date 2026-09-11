@@ -29,6 +29,7 @@ enum UserRole {
   bool get canManageUsers => this == UserRole.admin;
   bool get canManageSettings => this == UserRole.admin;
   bool get canManageWorkers => this == UserRole.admin;
+  bool get canManagePrices => this == UserRole.admin;
   bool get canCreateTransactions =>
       this == UserRole.admin || this == UserRole.worker;
   bool get canDeleteWorkers => this == UserRole.admin;
@@ -63,6 +64,7 @@ class AppUser {
   final bool emailVerified;
   final String? createdBy; // Admin who created this user
   final String? workerId; // Link to Worker profile (for Manager role)
+  final String companyId;
 
   AppUser({
     required this.uid,
@@ -77,6 +79,7 @@ class AppUser {
     this.emailVerified = false,
     this.createdBy,
     this.workerId,
+    this.companyId = 'cofiz',
   });
 
   /// Create from Firestore
@@ -103,6 +106,7 @@ class AppUser {
       emailVerified: data['emailVerified'] ?? false,
       createdBy: data['createdBy'],
       workerId: data['workerId'],
+      companyId: data['companyId'] as String? ?? 'cofiz',
     );
   }
 
@@ -120,6 +124,7 @@ class AppUser {
       'emailVerified': emailVerified,
       'createdBy': createdBy,
       'workerId': workerId,
+      'companyId': companyId,
     };
   }
 
@@ -153,6 +158,7 @@ class AppUser {
       emailVerified: json['emailVerified'] ?? false,
       createdBy: json['createdBy'],
       workerId: json['workerId'],
+      companyId: json['companyId'] as String? ?? 'cofiz',
     );
   }
 
@@ -169,6 +175,7 @@ class AppUser {
     bool? emailVerified,
     String? createdBy,
     String? workerId,
+    String? companyId,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -183,6 +190,7 @@ class AppUser {
       emailVerified: emailVerified ?? this.emailVerified,
       createdBy: createdBy ?? this.createdBy,
       workerId: workerId ?? this.workerId,
+      companyId: companyId ?? this.companyId,
     );
   }
 }
