@@ -297,6 +297,40 @@ class NotificationTriggerService {
     );
   }
 
+  Future<void> notifyDailyPriceSet({
+    required String setByName,
+    required Map<String, double> prices,
+    String? senderId,
+  }) async {
+    final parts = prices.entries
+        .map((e) => '${e.key}: ETB ${e.value.toStringAsFixed(0)}/kg')
+        .join(', ');
+    final body = 'Today\u2019s prices \u2014 $parts (set by $setByName)';
+    for (final role in ['admin', 'worker', 'viewer']) {
+      try {
+        final snap = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: role)
+            .get();
+        for (final doc in snap.docs) {
+          await _sendNotification(
+            targetUserId: doc.id,
+            title: 'Daily coffee prices',
+            body: body,
+            type: NotificationType.info,
+            senderName: setByName,
+            senderId: senderId,
+            metadata: {
+              for (final e in prices.entries) e.key: e.value,
+            },
+          );
+        }
+      } catch (e) {
+        debugPrint('Error notifying $role of daily price: $e');
+      }
+    }
+  }
+
   Future<void> _notifyAllViewers({
     required String title,
     required String body,
