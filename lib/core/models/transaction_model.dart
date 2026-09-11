@@ -15,7 +15,7 @@ class MoneyTransaction {
   final bool approved;
 
   // Specific to Coffee Purchase
-  final String? coffeeType; // 'jenfel', 'yetatebe', 'special'
+  final String? coffeeType; // 'jenfel', 'wet', 'special' (legacy docs may say 'yetatebe')
   final double? coffeeWeight; // in Kg
   final double? pricePerKg;
   final double? commissionAmount;
@@ -32,6 +32,11 @@ class MoneyTransaction {
   // only the covered portion hits the balance; the rest is stored as a Debt doc.
   final double? forgivenAmount;
   final bool isDebt;
+
+  // Daily-price snapshot (purchase only): the advisory price in effect when
+  // recorded, and whether the entered price exceeded it.
+  final double? dailyPriceAtSale;
+  final bool aboveDailyPrice;
 
   MoneyTransaction({
     required this.id,
@@ -56,6 +61,8 @@ class MoneyTransaction {
     this.transferRole,
     this.forgivenAmount,
     this.isDebt = false,
+    this.dailyPriceAtSale,
+    this.aboveDailyPrice = false,
   });
 
   factory MoneyTransaction.fromFirestore(Map<String, dynamic> data, String id) {
@@ -90,6 +97,8 @@ class MoneyTransaction {
       transferRole: data['transferRole'],
       forgivenAmount: (data['forgivenAmount'] ?? 0.0).toDouble() == 0.0 ? null : (data['forgivenAmount'] as num).toDouble(),
       isDebt: data['isDebt'] == true,
+      dailyPriceAtSale: (data['dailyPriceAtSale'] as num?)?.toDouble(),
+      aboveDailyPrice: data['aboveDailyPrice'] == true,
     );
   }
 
@@ -116,6 +125,8 @@ class MoneyTransaction {
       'transferRole': transferRole,
       if (forgivenAmount != null) 'forgivenAmount': forgivenAmount,
       'isDebt': isDebt,
+      if (dailyPriceAtSale != null) 'dailyPriceAtSale': dailyPriceAtSale,
+      'aboveDailyPrice': aboveDailyPrice,
     };
   }
 
@@ -139,6 +150,8 @@ class MoneyTransaction {
     double? commissionAmount,
     double? forgivenAmount,
     bool? isDebt,
+    double? dailyPriceAtSale,
+    bool? aboveDailyPrice,
   }) {
     return MoneyTransaction(
       id: id,
@@ -163,6 +176,8 @@ class MoneyTransaction {
       transferRole: transferRole,
       forgivenAmount: forgivenAmount ?? this.forgivenAmount,
       isDebt: isDebt ?? this.isDebt,
+      dailyPriceAtSale: dailyPriceAtSale ?? this.dailyPriceAtSale,
+      aboveDailyPrice: aboveDailyPrice ?? this.aboveDailyPrice,
     );
   }
 
@@ -198,6 +213,8 @@ class MoneyTransaction {
       transferRole: json['transferRole'],
       forgivenAmount: (json['forgivenAmount'] ?? 0.0).toDouble() == 0.0 ? null : (json['forgivenAmount'] as num).toDouble(),
       isDebt: json['isDebt'] == true,
+      dailyPriceAtSale: (json['dailyPriceAtSale'] as num?)?.toDouble(),
+      aboveDailyPrice: json['aboveDailyPrice'] == true,
     );
   }
 
