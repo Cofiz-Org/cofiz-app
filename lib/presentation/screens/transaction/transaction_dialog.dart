@@ -7,6 +7,7 @@ import '../../../core/models/worker_model.dart';
 import '../../../core/models/transaction_model.dart';
 import '../../../core/constants/coffee_types.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/daily_price_provider.dart';
 import '../../../core/providers/transaction_provider.dart';
 import '../../../core/providers/income_provider.dart';
 import '../../../core/providers/expense_provider.dart';
@@ -45,7 +46,7 @@ class _TransactionDialogState extends State<TransactionDialog> {
   
   final _weightController = TextEditingController();
   final _priceController = TextEditingController();
-  CoffeeType? _selectedCoffeeType;
+  CoffeeType? _selectedCoffeeType = CoffeeType.wet;
 
   bool _isLoading = false;
   File? _receiptImage;
@@ -71,10 +72,11 @@ class _TransactionDialogState extends State<TransactionDialog> {
       _amountController.text = existing.amount.toStringAsFixed(2);
       _notesController.text = existing.notes ?? '';
       _selectedCoffeeType = existing.coffeeType == null
-          ? null
+          ? CoffeeType.wet
           : CoffeeType.values
               .where((t) => t.name == existing.coffeeType)
-              .firstOrNull;
+              .firstOrNull ??
+              CoffeeType.wet;
       if (existing.coffeeWeight != null) {
         _weightController.text = existing.coffeeWeight.toString();
       }
@@ -233,6 +235,46 @@ class _TransactionDialogState extends State<TransactionDialog> {
     setState(() {}); 
   }
 
+  Widget _buildDailyPriceHint() {
+    if (widget.type != 'purchase') return const SizedBox.shrink();
+    final type = _selectedCoffeeType;
+    if (type == null) return const SizedBox.shrink();
+    final dayPrice = context.watch<DailyPriceProvider>().priceFor(type);
+    if (dayPrice == null) return const SizedBox.shrink();
+    final entered = double.tryParse(_priceController.text.trim());
+    final l10n = AppLocalizations.of(context)!;
+    final String typeLabel;
+    switch (type) {
+      case CoffeeType.jenfel:
+        typeLabel = l10n.jenfel;
+        break;
+      case CoffeeType.wet:
+        typeLabel = l10n.wet;
+        break;
+      case CoffeeType.special:
+        typeLabel = l10n.special;
+        break;
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Today: ${dayPrice.toStringAsFixed(0)}/kg',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          if (entered != null && entered > dayPrice)
+            Text(
+              l10n.aboveDailyPriceWarning(
+                  dayPrice.toStringAsFixed(0), typeLabel),
+              style: const TextStyle(fontSize: 12, color: Colors.amber),
+            ),
+        ],
+      ),
+    );
+  }
+
   String _calculateCommission() {
     final weight = double.tryParse(_weightController.text.trim()) ?? 0;
     if (weight <= 0) return '0.00 ETB';
@@ -251,6 +293,8 @@ class _TransactionDialogState extends State<TransactionDialog> {
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     final notes = _notesController.text.trim();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final dailyPrices =
+        Provider.of<DailyPriceProvider>(context, listen: false);
     final transactionProvider =
         Provider.of<TransactionProvider>(context, listen: false);
     final tp = context.read<TransactionProvider>();
@@ -397,6 +441,12 @@ class _TransactionDialogState extends State<TransactionDialog> {
           final weight = double.tryParse(_weightController.text.trim());
           final price = double.tryParse(_priceController.text.trim());
           final commission = (weight ?? 0) * widget.worker.commissionRate;
+          final dayPrice = _selectedCoffeeType == null
+              ? null
+              : dailyPrices.priceFor(_selectedCoffeeType!);
+          final aboveDayPrice = dayPrice != null &&
+              price != null &&
+              price > dayPrice;
 
           final purchaseTxId = await transactionProvider.recordCoffeePurchase(
             workerId: widget.worker.id,
@@ -410,6 +460,8 @@ class _TransactionDialogState extends State<TransactionDialog> {
             weight: weight,
             pricePerKg: price,
             commission: commission,
+            dailyPriceAtSale: dayPrice,
+            aboveDailyPrice: aboveDayPrice,
           );
           success = purchaseTxId != null;
           break;
@@ -528,8 +580,8 @@ class _TransactionDialogState extends State<TransactionDialog> {
                       switch (type) {
                         case CoffeeType.jenfel:
                           return l?.jenfel ?? 'Dried';
-                        case CoffeeType.yetatebe:
-                          return l?.yetatebe ?? 'Washed';
+                        case CoffeeType.wet:
+                          return l?.wet ?? 'Wet';
                         case CoffeeType.special:
                           return l?.special ?? 'Special';
                       }
@@ -596,6 +648,7 @@ class _TransactionDialogState extends State<TransactionDialog> {
                       ),
                     ],
                   ),
+                  _buildDailyPriceHint(),
                   const SizedBox(height: 16),
 
                   
