@@ -270,7 +270,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jenfel => 'Dried';
 
   @override
-  String get yetatebe => 'Washed';
+  String get wet => 'Wet';
 
   @override
   String get special => 'Special';
@@ -1141,6 +1141,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coffeeTypeLabel => 'Coffee Type *';
+
+  @override
+  String get dailyPrice => 'Daily price';
+
+  @override
+  String get setDailyPrice => 'Set daily price';
+
+  @override
+  String get priceNotSetYet => 'Today\'s price not set yet';
+
+  @override
+  String aboveDailyPriceWarning(Object price, Object type) {
+    return 'Above today\'s $type price of $price/kg';
+  }
+
+  @override
+  String get dailyPriceSetTitle => 'Today\'s coffee prices are set';
 
   @override
   String get quantityKgLabel => 'Quantity (Kg) *';
