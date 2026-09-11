@@ -12,6 +12,7 @@ import 'core/providers/auth_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/density_provider.dart';
 import 'core/providers/audit_provider.dart';
+import 'core/providers/daily_price_provider.dart';
 import 'core/providers/worker_provider.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/services/offline_sync_service.dart';
@@ -183,6 +184,7 @@ class _StitchWorkerAppState extends State<StitchWorkerApp> {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => DensityProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => DailyPriceProvider()),
         ChangeNotifierProvider(create: (_) => AuditProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UpdateProvider()..initialize()),
