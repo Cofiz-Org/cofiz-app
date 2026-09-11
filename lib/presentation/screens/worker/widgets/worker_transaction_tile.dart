@@ -228,7 +228,8 @@ class WorkerTransactionTile extends StatelessWidget {
       case 'jenfel':
         return l10n?.jenfel ?? 'Dried';
       case 'yetatebe':
-        return l10n?.yetatebe ?? 'Washed';
+      case 'wet':
+        return l10n?.wet ?? 'Wet';
       case 'special':
         return l10n?.special ?? 'Special';
       default:
