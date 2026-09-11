@@ -380,6 +380,9 @@ class OfflineSyncService {
                 'commissionAmount': operation['commissionAmount'],
               if (operation['forgivenAmount'] != null)
                 'forgivenAmount': operation['forgivenAmount'],
+              if (operation['dailyPriceAtSale'] != null)
+                'dailyPriceAtSale': operation['dailyPriceAtSale'],
+              'aboveDailyPrice': operation['aboveDailyPrice'] == true,
               'isDebt': ((operation['forgivenAmount'] as num?)?.toDouble() ?? 0.0) > 0,
             });
             final lastActiveAt = operation['createdAt'] as int? ??
