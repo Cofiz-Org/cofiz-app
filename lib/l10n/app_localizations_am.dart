@@ -270,7 +270,7 @@ class AppLocalizationsAm extends AppLocalizations {
   String get jenfel => 'ጃንፈል';
 
   @override
-  String get yetatebe => 'የታጠበ';
+  String get wet => 'እርጥብ';
 
   @override
   String get special => 'ስፔሻል';
@@ -1132,6 +1132,23 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get coffeeTypeLabel => 'የቡና ዓይነት *';
+
+  @override
+  String get dailyPrice => 'ዕለታዊ ዋጋ';
+
+  @override
+  String get setDailyPrice => 'ዕለታዊ ዋጋ አቆም';
+
+  @override
+  String get priceNotSetYet => 'የዛሬ ዋጋ እስካሁን አልተቆጠረም';
+
+  @override
+  String aboveDailyPriceWarning(Object price, Object type) {
+    return 'ከዛሬ $type ዋጋ $price/ኪግ በላይ';
+  }
+
+  @override
+  String get dailyPriceSetTitle => 'የዛሬ የቡና ዋጋዎች ተቀምጠዋል';
 
   @override
   String get quantityKgLabel => 'ብዛት (ኪሎ) *';
