@@ -26,3 +26,5 @@ Put the keystore outside the repo, point `key.properties` at it (gitignored),
 wire it in `android/app/build.gradle`, then `flutter build apk --release`.
 The APK from a `vX.Y.Z` tag attaches to the same-tag `cofiz-dist` release as
 `cofiz-vX.Y.Z.apk`.
+
+<!-- ci canary -->
