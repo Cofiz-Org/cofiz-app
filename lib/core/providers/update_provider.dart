@@ -123,7 +123,8 @@ class UpdateProvider with ChangeNotifier {
         _release = null;
         if (userInitiated && service.lastError != null) {
           _status = UpdateStatus.error;
-          _errorMessage = service.lastError;
+          _errorMessage =
+              UpdateService.friendlyError(service.lastError!);
         } else {
           _status =
               _currentVersion.isEmpty ? UpdateStatus.unknown : UpdateStatus.upToDate;
@@ -134,7 +135,7 @@ class UpdateProvider with ChangeNotifier {
           _status != UpdateStatus.downloading &&
           _status != UpdateStatus.ready) {
         _status = UpdateStatus.error;
-        _errorMessage = e.toString();
+        _errorMessage = UpdateService.friendlyError(e);
       }
     } finally {
       _checkInFlight = false;
@@ -187,7 +188,7 @@ class UpdateProvider with ChangeNotifier {
       _status = UpdateStatus.ready;
       notifyListeners();
       await openInstaller(path);
-    } on Exception catch (e) {
+    } catch (e) {
       if (isDownloadCancelled(e)) {
         _status = UpdateStatus.available;
         _progress = 0;
@@ -195,7 +196,7 @@ class UpdateProvider with ChangeNotifier {
         return;
       }
       _status = UpdateStatus.error;
-      _errorMessage = e.toString().replaceFirst('Bad state: ', '');
+      _errorMessage = UpdateService.friendlyError(e);
       notifyListeners();
     }
   }
@@ -207,14 +208,15 @@ class UpdateProvider with ChangeNotifier {
       final result = await opener(path);
       if (result.type != ResultType.done) {
         _status = UpdateStatus.ready;
-        _errorMessage = result.message.isNotEmpty
+        final detail = result.message.isNotEmpty
             ? result.message
             : 'Could not open installer';
+        _errorMessage = UpdateService.friendlyError(detail);
         notifyListeners();
       }
     } catch (e) {
       _status = UpdateStatus.error;
-      _errorMessage = e.toString();
+      _errorMessage = UpdateService.friendlyError(e);
       notifyListeners();
     }
   }
