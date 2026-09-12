@@ -1,0 +1,40 @@
+name: PR
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analyze-test:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Africa/Addis_Ababa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.47.x' }
+      - name: Materialize Firebase config
+        env:
+          FIREBASE_OPTIONS_B64: ${{ secrets.FIREBASE_OPTIONS_B64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_SECRET: ${{ secrets.RELAY_SECRET }}
+        run: |
+          test -n "$FIREBASE_OPTIONS_B64" || { echo "FIREBASE_OPTIONS_B64 missing"; exit 1; }
+          test -n "$GOOGLE_SERVICES_JSON" || { echo "GOOGLE_SERVICES_JSON missing"; exit 1; }
+          echo "$FIREBASE_OPTIONS_B64" | base64 -d > lib/firebase_options.dart
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          printf 'RELAY_URL=%s\nRELAY_SECRET=%s\nTELEGRAM_BOT_ID=8777989279\nUPDATE_REPO=cofiz-org/cofiz-dist\n' \
+            "$RELAY_URL" "$RELAY_SECRET" > .env
+      - run: flutter analyze
+      - run: flutter test
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
