@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -27,14 +28,25 @@ Map<String, dynamic> releaseJson(String tag) => {
 class FakeUpdateHttp extends http.BaseClient {
   Map<String, dynamic>? releaseJson;
   bool throwOnLatest = false;
+  int latestStatus = 200;
+  bool throwOnApk = false;
+  int apkStatus = 200;
   List<int> apkBytes = utf8.encode('fake-apk');
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (request.url.path.endsWith('/releases/latest')) {
       if (throwOnLatest) throw const SocketException('offline');
+      if (latestStatus != 200) {
+        return http.StreamedResponse(
+            Stream.value(utf8.encode('rate limited')), latestStatus);
+      }
       return http.StreamedResponse(
           Stream.value(utf8.encode(jsonEncode(releaseJson ?? {}))), 200);
+    }
+    if (throwOnApk) throw const SocketException('connection closed');
+    if (apkStatus != 200) {
+      return http.StreamedResponse(Stream.value([]), apkStatus);
     }
     return http.StreamedResponse(Stream.value(apkBytes), 200,
         contentLength: apkBytes.length);
@@ -138,5 +150,64 @@ void main() {
     expect(p.progress, 1.0);
     expect(opened, endsWith('.apk'));
     expect(await File(opened!).exists(), isTrue);
+  });
+
+  test('interrupted download speaks plain language, not dev jargon',
+      () async {
+    mockTempDir();
+    final http = FakeUpdateHttp()
+      ..releaseJson = releaseJson('v1.2.0')
+      ..throwOnApk = true;
+    final p = UpdateProvider(
+      service: await serviceFor(http),
+      versionLoader: () async => '1.1.9',
+      openInstaller: (path) async => OpenResult(type: ResultType.done),
+    );
+    await p.initialize();
+    await p.downloadAndInstall();
+    expect(p.status, UpdateStatus.error);
+    expect(p.errorMessage, isNot(contains('SocketException')));
+    expect(p.errorMessage, isNot(contains('connection closed')));
+    expect(p.errorMessage, 'No internet connection. Check your connection and retry.');
+  });
+
+  test('apk 403 becomes busy-retry message, check 403 likewise', () async {
+    mockTempDir();
+    final http = FakeUpdateHttp()
+      ..releaseJson = releaseJson('v1.2.0')
+      ..apkStatus = 403;
+    final p = UpdateProvider(
+      service: await serviceFor(http),
+      versionLoader: () async => '1.1.9',
+      openInstaller: (path) async => OpenResult(type: ResultType.done),
+    );
+    await p.initialize();
+    await p.downloadAndInstall();
+    expect(p.status, UpdateStatus.error);
+    expect(p.errorMessage, isNot(contains('403')));
+    expect(p.errorMessage, 'GitHub is busy right now. Please try again later.');
+
+    final http2 = FakeUpdateHttp()
+      ..releaseJson = releaseJson('v1.2.0')
+      ..latestStatus = 403;
+    final q = UpdateProvider(
+      service: await serviceFor(http2),
+      versionLoader: () async => '1.1.9',
+    );
+    await q.initialize();
+    await q.checkForUpdates(force: true, userInitiated: true);
+    expect(q.status, UpdateStatus.error);
+    expect(q.errorMessage, isNot(contains('403')));
+  });
+
+  test('friendlyError maps timeouts and unknown errors', () {
+    expect(
+      UpdateService.friendlyError(TimeoutException('slow')),
+      'The connection is too slow. Please retry.',
+    );
+    expect(
+      UpdateService.friendlyError(StateError('weird internals')),
+      'Something went wrong. Please try again.',
+    );
   });
 }

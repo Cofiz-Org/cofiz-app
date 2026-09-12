@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -112,6 +113,47 @@ class UpdateService {
       Uri.parse('$_kApiBase/repos/$repo/releases/latest');
 
   String? lastError;
+
+  static String friendlyError(Object error) {
+    if (error is TimeoutException) {
+      return 'The connection is too slow. Please retry.';
+    }
+    final text = error.toString().toLowerCase();
+    bool hasAny(List<String> needles) =>
+        needles.any((n) => text.contains(n));
+    if (error is SocketException ||
+        error is http.ClientException ||
+        hasAny([
+          'failed host lookup',
+          'network is unreachable',
+          'connection closed',
+          'connection reset',
+          'connection refused',
+          'connection aborted',
+          'broken pipe',
+          'no internet',
+          'offline',
+        ])) {
+      return 'No internet connection. Check your connection and retry.';
+    }
+    if (hasAny(['403', 'rate limit', 'too many requests'])) {
+      return 'GitHub is busy right now. Please try again later.';
+    }
+    if (text.contains('404') || text.contains('not found')) {
+      return 'Update not found on the server. Please try again later.';
+    }
+    if (hasAny(['500', '502', '503', 'server error'])) {
+      return 'The server had a hiccup. Please try again.';
+    }
+    if (hasAny(['download incomplete', 'download failed'])) {
+      return 'The download was interrupted. Please retry.';
+    }
+    if (text.contains('could not open installer') ||
+        text.contains('could not open the installer')) {
+      return 'Could not open the installer. Please try again.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
 
   Future<ReleaseInfo?> checkForUpdates({
     required String currentVersion,
