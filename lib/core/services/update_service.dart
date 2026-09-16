@@ -237,9 +237,10 @@ class UpdateService {
       unawaited(_migrateLegacyDismiss(version, legacy));
       return true;
     }
-    return DateTime.now()
-            .difference(DateTime.fromMillisecondsSinceEpoch(at)) <
-        _kSnoozeDuration;
+    final elapsed =
+        DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(at));
+    if (elapsed.isNegative) return false;
+    return elapsed < _kSnoozeDuration;
   }
 
   Future<void> _migrateLegacyDismiss(
