@@ -149,6 +149,23 @@ void main() {
       await svc.dismissVersion('v1.2.0');
       expect(await svc.checkForUpdates(currentVersion: '1.1.9'), isNull);
     });
+
+    test('dismissed version returns after 24h', () async {
+      final http = FakeUpdateHttp()..releaseJson = releaseJson(tag: 'v1.2.0');
+      final svc = await makeService(http);
+      await svc.dismissVersion('v1.2.0');
+      expect(await svc.checkForUpdates(currentVersion: '1.1.9'), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          'app_update_dismissed_at_v1.2.0',
+          DateTime.now()
+              .subtract(const Duration(hours: 25))
+              .millisecondsSinceEpoch);
+      final again =
+          await svc.checkForUpdates(currentVersion: '1.1.9', force: true);
+      expect(again, isNotNull);
+      expect(again!.version, 'v1.2.0');
+    });
   });
 
   group('downloadApk', () {
