@@ -1,3 +1,10 @@
+## v1.0.5
+
+Notifications stay in the bell center with 30 per page.
+Push titles name the real event.
+Dismissed updates return after 24 hours.
+Update notes show ticked highlights.
+
 ## v1.0.4
 
 Daily coffee prices: admin sets per-type prices from the dashboard, everyone
