@@ -149,6 +149,59 @@ void main() {
       await svc.dismissVersion('v1.2.0');
       expect(await svc.checkForUpdates(currentVersion: '1.1.9'), isNull);
     });
+
+    test('dismissed version returns after 24h', () async {
+      final http = FakeUpdateHttp()..releaseJson = releaseJson(tag: 'v1.2.0');
+      final svc = await makeService(http);
+      await svc.dismissVersion('v1.2.0');
+      expect(await svc.checkForUpdates(currentVersion: '1.1.9'), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          'app_update_dismissed_at_v1.2.0',
+          DateTime.now()
+              .subtract(const Duration(hours: 25))
+              .millisecondsSinceEpoch);
+      final again =
+          await svc.checkForUpdates(currentVersion: '1.1.9', force: true);
+      expect(again, isNotNull);
+      expect(again!.version, 'v1.2.0');
+    });
+
+    test('future dismiss timestamp counts as expired', () async {
+      final http = FakeUpdateHttp()..releaseJson = releaseJson(tag: 'v1.2.0');
+      final svc = await makeService(http);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          'app_update_dismissed_at_v1.2.0',
+          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch);
+      final release =
+          await svc.checkForUpdates(currentVersion: '1.1.9', force: true);
+      expect(release, isNotNull);
+      expect(release!.version, 'v1.2.0');
+    });
+
+    test('legacy dismiss migrates and returns after 24h', () async {
+      final http = FakeUpdateHttp()..releaseJson = releaseJson(tag: 'v1.2.0');
+      SharedPreferences.setMockInitialValues({
+        'app_update_dismissed_versions': ['v1.2.0'],
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final svc = UpdateService(prefs: prefs, client: http, repo: 'o/r');
+      expect(await svc.checkForUpdates(currentVersion: '1.1.9'), isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final migratedAt =
+          prefs.getInt('app_update_dismissed_at_v1.2.0');
+      expect(migratedAt, isNotNull);
+      await prefs.setInt(
+          'app_update_dismissed_at_v1.2.0',
+          DateTime.fromMillisecondsSinceEpoch(migratedAt!)
+              .subtract(const Duration(hours: 25))
+              .millisecondsSinceEpoch);
+      final again =
+          await svc.checkForUpdates(currentVersion: '1.1.9', force: true);
+      expect(again, isNotNull);
+      expect(again!.version, 'v1.2.0');
+    });
   });
 
   group('downloadApk', () {

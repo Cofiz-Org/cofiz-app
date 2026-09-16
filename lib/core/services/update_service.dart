@@ -100,6 +100,10 @@ class UpdateService {
   static const String _kLastCheckedKey = 'app_update_last_checked_ms';
   static const String _kCachedReleaseKey = 'app_update_cached_release';
   static const String _kDismissedKey = 'app_update_dismissed_versions';
+  static const Duration _kSnoozeDuration = Duration(hours: 24);
+
+  static String _dismissedAtKey(String version) =>
+      'app_update_dismissed_at_$version';
 
   UpdateService({
     required SharedPreferences prefs,
@@ -225,14 +229,35 @@ class UpdateService {
     }
   }
 
-  bool isDismissed(String version) =>
-      _prefs.getStringList(_kDismissedKey)?.contains(version) ?? false;
+  bool isDismissed(String version) {
+    final at = _prefs.getInt(_dismissedAtKey(version));
+    if (at == null) {
+      final legacy = _prefs.getStringList(_kDismissedKey);
+      if (legacy == null || !legacy.contains(version)) return false;
+      unawaited(_migrateLegacyDismiss(version, legacy));
+      return true;
+    }
+    final elapsed =
+        DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(at));
+    if (elapsed.isNegative) return false;
+    return elapsed < _kSnoozeDuration;
+  }
+
+  Future<void> _migrateLegacyDismiss(
+      String version, List<String> legacy) async {
+    await _prefs.setInt(
+        _dismissedAtKey(version), DateTime.now().millisecondsSinceEpoch);
+    legacy.remove(version);
+    await _prefs.setStringList(_kDismissedKey, legacy);
+  }
 
   Future<void> dismissVersion(String version) async {
-    final list = _prefs.getStringList(_kDismissedKey) ?? <String>[];
-    if (!list.contains(version)) {
-      list.add(version);
-      await _prefs.setStringList(_kDismissedKey, list);
+    await _prefs.setInt(
+        _dismissedAtKey(version), DateTime.now().millisecondsSinceEpoch);
+    final legacy = _prefs.getStringList(_kDismissedKey);
+    if (legacy != null && legacy.contains(version)) {
+      legacy.remove(version);
+      await _prefs.setStringList(_kDismissedKey, legacy);
     }
   }
 
