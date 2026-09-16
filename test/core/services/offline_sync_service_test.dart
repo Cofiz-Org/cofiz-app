@@ -87,8 +87,9 @@ void main() {
     expect(doc.data()?['status'], 'paid');
     final notes = await fake.collection('notifications').get();
     expect(
-        notes.docs
-            .any((d) => d.data()['type'] == 'debtRecorded'),
+        notes.docs.any((d) =>
+            d.data()['type'] == 'debtRepaid' ||
+            d.data()['type'] == 'debtRecorded'),
         isTrue);
   });
 

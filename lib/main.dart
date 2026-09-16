@@ -272,6 +272,8 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     return Consumer3<AuthProvider, LockStateProvider, PhoneOtpAuthProvider>(
       builder: (context, authProvider, lockState, otpProvider, _) {
+        AppNavigator.isLocked = () =>
+            lockState.state == PinLockState.locked ? 'locked' : 'unlocked';
         if (authProvider.isAuthenticated && authProvider.user != null) {
           final uid = authProvider.user!.uid;
           if (_lastInitUid != uid) {

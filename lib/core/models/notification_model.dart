@@ -3,12 +3,17 @@ enum NotificationType {
   info,
   alert,
   dailyReportRequest,
-  // New types for automatic notifications
-  lowBalance, // Worker balance below threshold
-  moneyDistributed, // Worker received money from admin
-  purchaseRecorded, // Admin notified of worker purchase
-  commissionEarned, // Worker earned commission
-  debtRecorded; // Debt recorded for collector
+  lowBalance,
+  moneyDistributed,
+  purchaseRecorded,
+  commissionEarned,
+  debtRecorded,
+  debtRepaid,
+  dailyPriceSet,
+  appUpdate,
+  debtReminder,
+  registrationApproved,
+  registrationDenied;
 
   String get displayName {
     switch (this) {
@@ -30,7 +35,25 @@ enum NotificationType {
         return 'Commission Earned';
       case NotificationType.debtRecorded:
         return 'Debt Recorded';
+      case NotificationType.debtRepaid:
+        return 'Debt Repaid';
+      case NotificationType.dailyPriceSet:
+        return 'Daily Prices';
+      case NotificationType.appUpdate:
+        return 'Update Available';
+      case NotificationType.debtReminder:
+        return 'Debt Reminder';
+      case NotificationType.registrationApproved:
+        return 'Registration Approved';
+      case NotificationType.registrationDenied:
+        return 'Registration Denied';
     }
+  }
+
+  static String cofizTitle(String title) {
+    final t = title.trim();
+    if (t.startsWith('Cofiz \u2192')) return t;
+    return 'Cofiz \u2192 $t';
   }
 }
 

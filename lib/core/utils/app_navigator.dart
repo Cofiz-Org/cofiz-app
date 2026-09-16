@@ -9,9 +9,11 @@ import '../../presentation/screens/worker/worker_dashboard_screen.dart';
 
 class AppNavigator {
   static final GlobalKey<NavigatorState> key = GlobalKey<NavigatorState>();
+  static String? Function()? isLocked;
 
   static void openNotificationType(String type,
       [Map<String, String> data = const {}]) {
+    if (isLocked != null && (isLocked!() == 'locked')) return;
     final nav = key.currentState;
     if (nav == null) return;
     final page = _pageFor(type, data);
@@ -23,12 +25,15 @@ class AppNavigator {
     switch (type) {
       case 'registrationApproved':
       case 'registrationDenied':
-        return null;
+        return const NotificationsScreen();
       case 'app_update':
+      case 'appUpdate':
         return const SettingsScreen();
       case 'dailyPriceSet':
         return const NotificationsScreen();
       case 'debtRecorded':
+      case 'debtRepaid':
+      case 'debtReminder':
         final collectorId = data['collectorId'] ?? '';
         if (collectorId.isEmpty ||
             collectorId == Debt.companyCollectorId) {

@@ -30,10 +30,11 @@ class NotificationTriggerService {
     String? senderId,
     Map<String, dynamic>? metadata,
   }) async {
+    final cofizTitle = NotificationType.cofizTitle(title);
     try {
       await _firestore.collection('notifications').add({
         'targetUserId': targetUserId,
-        'title': title,
+        'title': cofizTitle,
         'body': body,
         'type': type.name,
         'isRead': false,
@@ -42,15 +43,15 @@ class NotificationTriggerService {
         'senderId': senderId,
         'metadata': metadata,
       });
-      debugPrint('Notification sent: $title to $targetUserId');
+      debugPrint('Notification sent: $cofizTitle to $targetUserId');
       await _maybeQueueEmail(
         targetUserId: targetUserId,
-        title: title,
+        title: cofizTitle,
         body: body,
       );
       await _pushRelay.sendPush(
         targetUserId: targetUserId,
-        title: title,
+        title: cofizTitle,
         body: body,
         type: type.name,
         data: metadata?.map((k, v) => MapEntry(k, v.toString())),
@@ -140,7 +141,7 @@ class NotificationTriggerService {
   }) async {
     await _sendNotification(
       targetUserId: workerUserId,
-      title: 'Commission Earned!',
+      title: 'Commission Earned',
       body:
           'You earned ETB ${commission.toStringAsFixed(0)} commission. Total: ETB ${totalCommission.toStringAsFixed(0)}',
       type: NotificationType.commissionEarned,
@@ -246,13 +247,13 @@ class NotificationTriggerService {
     final viewerBody =
         'You owe $creditor: ETB ${forgivenAmount.toStringAsFixed(0)} recorded.';
     await _notifyAllAdmins(
-      title: 'Debt recorded',
+      title: 'Debt Recorded',
       body: adminBody,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
     );
     await _notifyAllViewers(
-      title: 'Debt recorded',
+      title: 'Debt Recorded',
       body: viewerBody,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount},
@@ -260,7 +261,7 @@ class NotificationTriggerService {
     await _notifyCollector(
       collectorId: collectorId,
       collectorName: collectorName,
-      title: 'Debt recorded',
+      title: 'Debt Recorded',
       body: viewerBody,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
@@ -276,23 +277,23 @@ class NotificationTriggerService {
     final body =
         '$collectorName cleared their balance (ETB ${amount.toStringAsFixed(0)} repaid).';
     await _notifyAllAdmins(
-      title: 'Debt repaid',
+      title: 'Debt Repaid',
       body: body,
-      type: NotificationType.debtRecorded,
+      type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
     await _notifyAllViewers(
-      title: 'Debt repaid',
+      title: 'Debt Repaid',
       body: body,
-      type: NotificationType.debtRecorded,
+      type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
     await _notifyCollector(
       collectorId: collectorId,
       collectorName: collectorName,
-      title: 'Debt repaid',
+      title: 'Debt Repaid',
       body: body,
-      type: NotificationType.debtRecorded,
+      type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
   }
@@ -315,9 +316,9 @@ class NotificationTriggerService {
         for (final doc in snap.docs) {
           await _sendNotification(
             targetUserId: doc.id,
-            title: 'Daily coffee prices',
+            title: 'Daily Prices',
             body: body,
-            type: NotificationType.info,
+            type: NotificationType.dailyPriceSet,
             senderName: setByName,
             senderId: senderId,
             metadata: {
