@@ -100,8 +100,20 @@ class NotificationsScreen extends StatelessWidget {
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: provider.notifications.length,
+                      itemCount: provider.notifications.length +
+                          (provider.hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index == provider.notifications.length) {
+                          if (!provider.isLoadingMore) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              provider.loadMore();
+                            });
+                          }
+                          return const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        }
                         final notification = provider.notifications[index];
                         return _buildNotificationItem(context, notification);
                       },
@@ -240,6 +252,18 @@ class NotificationsScreen extends StatelessWidget {
 
   IconData _getIconForType(NotificationType type) {
     switch (type) {
+      case NotificationType.appUpdate:
+        return Icons.system_update_outlined;
+      case NotificationType.debtRepaid:
+        return Icons.check_circle_outline;
+      case NotificationType.debtReminder:
+        return Icons.alarm_outlined;
+      case NotificationType.dailyPriceSet:
+        return Icons.local_cafe_outlined;
+      case NotificationType.registrationApproved:
+        return Icons.verified_outlined;
+      case NotificationType.registrationDenied:
+        return Icons.block_outlined;
       case NotificationType.ping:
         return Icons.campaign_outlined;
       case NotificationType.dailyReportRequest:
