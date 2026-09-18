@@ -20,6 +20,12 @@ class PingService {
         _relayUrlOverride = relayUrl,
         _relaySecretOverride = relaySecret;
 
+  static String _langOf(Map<String, dynamic>? data) {
+    final code = data?['language_code'];
+    if (code is String && code.toLowerCase().startsWith('am')) return 'am';
+    return 'en';
+  }
+
   /// Fans out a ping from collector/viewer to all admins.
   ///
   /// Throws [ArgumentError] if note > 120 chars.
@@ -58,6 +64,7 @@ class PingService {
         ? 'pingViewerToAdmin'
         : 'pingCollectorToAdmin';
     final title = 'Ping from $senderName (${senderRole.name})';
+    final titleAm = 'ፒንግ ከ$senderName (${senderRole.name})';
     final nowMs = DateTime.now().millisecondsSinceEpoch;
 
     // Batch write notifications
@@ -69,6 +76,8 @@ class PingService {
           'targetUserId': doc.id,
           'title': title,
           'body': note,
+          'title_am': titleAm,
+          'body_am': note,
           'type': type,
           'isRead': false,
           'createdAt': nowMs,
@@ -89,9 +98,10 @@ class PingService {
       relaySecret: _relaySecretOverride,
     );
     for (final doc in adminSnap.docs) {
+      final lang = _langOf(doc.data());
       await relay.sendPush(
         targetUserId: doc.id,
-        title: title,
+        title: lang == 'am' ? titleAm : title,
         body: note,
         type: type,
       );

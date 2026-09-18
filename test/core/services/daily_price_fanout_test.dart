@@ -52,4 +52,29 @@ void main() {
     expect(docs.docs.length, 1);
     expect(docs.docs.first.data()['body'].contains('\u2014'), isFalse);
   });
+
+  test('price change notifies in recipient locale (am user gets body_am)',
+      () async {
+    final firestore = FakeFirebaseFirestore();
+    final relay = PushRelayService(
+      firestore: firestore,
+      httpClient: MockClient((request) async =>
+          http.Response('{"sent":true}', 200)),
+      relayUrl: 'https://relay.example.com/push',
+      relaySecret: 'secret123',
+    );
+    await firestore
+        .collection('users')
+        .doc('a1')
+        .set({'role': 'admin', 'language_code': 'am'});
+    await firestore.collection('users').doc('w1').set({'role': 'worker'});
+    final svc =
+        NotificationTriggerService(firestore: firestore, pushRelay: relay);
+    await svc.notifyDailyPriceSet(setByName: 'Admin', prices: {'wet': 380});
+    final docs = await firestore.collection('notifications').get();
+    final amDoc =
+        docs.docs.firstWhere((d) => d.data()['targetUserId'] == 'a1');
+    expect(amDoc.data()['body_am'], isNotNull);
+    expect((amDoc.data()['body_am'] as String).contains('\u2014'), isFalse);
+  });
 }

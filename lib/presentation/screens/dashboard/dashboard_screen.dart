@@ -140,18 +140,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           isAdmin: authProvider.appUser?.role.canManagePrices ??
                               false,
                           onEditRequested: () async {
+                            final provider =
+                                Provider.of<DailyPriceProvider>(
+                                    context,
+                                    listen: false);
+                            final old = provider
+                                .priceFor(provider.selectedType);
                             final saved =
                                 await showDailyPriceModal(context);
                             if (saved == null || !context.mounted) return;
-                            final prices = Provider.of<DailyPriceProvider>(
-                                context,
-                                listen: false);
-                            final name = authProvider.appUser?.displayName ??
-                                'Admin';
+                            if (old == saved) return;
+                            final name =
+                                authProvider.appUser?.displayName ?? 'Admin';
                             unawaited(NotificationTriggerService()
                                 .notifyDailyPriceSet(
                               setByName: name,
-                              prices: prices.prices,
+                              prices: provider.prices,
                               senderId: authProvider.appUser?.uid,
                             ));
                           },

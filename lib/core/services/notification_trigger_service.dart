@@ -21,38 +21,59 @@ class NotificationTriggerService {
   static const double largePurchaseThreshold = 10000.0;
 
   
+  Future<String> _recipientLanguage(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final code = doc.data()?['language_code'];
+      if (code is String && code.toLowerCase().startsWith('am')) return 'am';
+    } catch (_) {}
+    return 'en';
+  }
+
   Future<void> _sendNotification({
     required String targetUserId,
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required NotificationType type,
     String? senderName,
     String? senderId,
     Map<String, dynamic>? metadata,
   }) async {
     final cofizTitle = NotificationType.cofizTitle(title);
+    final cofizTitleAm =
+        titleAm == null ? null : NotificationType.cofizTitle(titleAm);
+    final lang = await _recipientLanguage(targetUserId);
+    final pushTitle = lang == 'am' ? (cofizTitleAm ?? cofizTitle) : cofizTitle;
+    final pushBody = lang == 'am' ? (bodyAm ?? body) : body;
     try {
-      await _firestore.collection('notifications').add({
-        'targetUserId': targetUserId,
-        'title': cofizTitle,
-        'body': body,
-        'type': type.name,
-        'isRead': false,
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'senderName': senderName ?? 'System',
-        'senderId': senderId,
-        'metadata': metadata,
-      });
+      final notification = AppNotification(
+        id: '',
+        targetUserId: targetUserId,
+        title: cofizTitle,
+        body: body,
+        titleAm: cofizTitleAm,
+        bodyAm: bodyAm,
+        type: type,
+        createdAt: DateTime.now(),
+        senderName: senderName ?? 'System',
+        senderId: senderId,
+        metadata: metadata,
+      );
+      await _firestore
+          .collection('notifications')
+          .add(notification.toFirestore());
       debugPrint('Notification sent: $cofizTitle to $targetUserId');
       await _maybeQueueEmail(
         targetUserId: targetUserId,
-        title: cofizTitle,
-        body: body,
+        title: pushTitle,
+        body: pushBody,
       );
       await _pushRelay.sendPush(
         targetUserId: targetUserId,
-        title: cofizTitle,
-        body: body,
+        title: pushTitle,
+        body: pushBody,
         type: type.name,
         data: metadata?.map((k, v) => MapEntry(k, v.toString())),
       );
@@ -109,6 +130,9 @@ class NotificationTriggerService {
       title: 'Money Received',
       body:
           'You received ETB ${amount.toStringAsFixed(0)} from ${adminName ?? 'Admin'}',
+      titleAm: 'ገንዘብ ተቀብለዋል',
+      bodyAm:
+          'ETB ${amount.toStringAsFixed(0)} ከ${adminName ?? 'አድሚን'} ተቀብለዋል',
       type: NotificationType.moneyDistributed,
       senderName: adminName ?? 'Admin',
       metadata: {
@@ -144,6 +168,9 @@ class NotificationTriggerService {
       title: 'Commission Earned',
       body:
           'You earned ETB ${commission.toStringAsFixed(0)} commission. Total: ETB ${totalCommission.toStringAsFixed(0)}',
+      titleAm: 'ኮሚሽን አግኝተዋል',
+      bodyAm:
+          'ETB ${commission.toStringAsFixed(0)} ኮሚሽን አግኝተዋል። ጠቅላላ: ETB ${totalCommission.toStringAsFixed(0)}',
       type: NotificationType.commissionEarned,
       metadata: {
         'commission': commission,
@@ -168,6 +195,8 @@ class NotificationTriggerService {
   Future<void> _notifyAllAdmins({
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required NotificationType type,
     Map<String, dynamic>? metadata,
   }) async {
@@ -183,6 +212,8 @@ class NotificationTriggerService {
           targetUserId: doc.id,
           title: title,
           body: body,
+          titleAm: titleAm,
+          bodyAm: bodyAm,
           type: type,
           senderName: 'System',
           metadata: metadata,
@@ -211,6 +242,8 @@ class NotificationTriggerService {
     required String collectorName,
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required NotificationType type,
     required Map<String, dynamic> metadata,
   }) async {
@@ -220,6 +253,8 @@ class NotificationTriggerService {
       targetUserId: userId,
       title: title,
       body: body,
+      titleAm: titleAm,
+      bodyAm: bodyAm,
       type: type,
       senderName: 'System',
       metadata: metadata,
@@ -246,15 +281,24 @@ class NotificationTriggerService {
         'You owe $creditor: ETB ${forgivenAmount.toStringAsFixed(0)} recorded ($kind ETB ${totalAmount.toStringAsFixed(0)}).$forSuffix';
     final viewerBody =
         'You owe $creditor: ETB ${forgivenAmount.toStringAsFixed(0)} recorded.';
+    const titleAm = 'ዕዳ ተመዝግቧል';
+    final adminBodyAm =
+        'ለ$creditor: ETB ${forgivenAmount.toStringAsFixed(0)} ዕዳ ተመዝግቧል ($kind ETB ${totalAmount.toStringAsFixed(0)}).$forSuffix';
+    final viewerBodyAm =
+        'ለ$creditor: ETB ${forgivenAmount.toStringAsFixed(0)} ዕዳ ተመዝግቧል።';
     await _notifyAllAdmins(
       title: 'Debt Recorded',
       body: adminBody,
+      titleAm: titleAm,
+      bodyAm: adminBodyAm,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
     );
     await _notifyAllViewers(
       title: 'Debt Recorded',
       body: viewerBody,
+      titleAm: titleAm,
+      bodyAm: viewerBodyAm,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount},
     );
@@ -263,6 +307,8 @@ class NotificationTriggerService {
       collectorName: collectorName,
       title: 'Debt Recorded',
       body: viewerBody,
+      titleAm: titleAm,
+      bodyAm: viewerBodyAm,
       type: NotificationType.debtRecorded,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'forgivenAmount': forgivenAmount, 'totalAmount': totalAmount},
     );
@@ -276,15 +322,22 @@ class NotificationTriggerService {
   }) async {
     final body =
         '$collectorName cleared their balance (ETB ${amount.toStringAsFixed(0)} repaid).';
+    const titleAm = 'ዕዳ ተከፍሏል';
+    final bodyAm =
+        '$collectorName ሂሳባቸውን አጽድተዋል (ETB ${amount.toStringAsFixed(0)} ተከፍሏል)።';
     await _notifyAllAdmins(
       title: 'Debt Repaid',
       body: body,
+      titleAm: titleAm,
+      bodyAm: bodyAm,
       type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
     await _notifyAllViewers(
       title: 'Debt Repaid',
       body: body,
+      titleAm: titleAm,
+      bodyAm: bodyAm,
       type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
@@ -293,6 +346,8 @@ class NotificationTriggerService {
       collectorName: collectorName,
       title: 'Debt Repaid',
       body: body,
+      titleAm: titleAm,
+      bodyAm: bodyAm,
       type: NotificationType.debtRepaid,
       metadata: {'collectorId': collectorId, 'collectorName': collectorName, 'amount': amount},
     );
@@ -307,6 +362,7 @@ class NotificationTriggerService {
         .map((e) => '${e.key}: ETB ${e.value.toStringAsFixed(0)}/kg')
         .join(', ');
     final body = 'Today\u2019s prices: $parts (set by $setByName)';
+    final bodyAm = 'የዛሬ ዋጋዎች: $parts (ያቆመው $setByName)';
     for (final role in ['admin', 'worker', 'viewer']) {
       try {
         final snap = await _firestore
@@ -318,6 +374,8 @@ class NotificationTriggerService {
             targetUserId: doc.id,
             title: 'Daily Prices',
             body: body,
+            titleAm: 'ዕለታዊ ዋጋዎች',
+            bodyAm: bodyAm,
             type: NotificationType.dailyPriceSet,
             senderName: setByName,
             senderId: senderId,
@@ -335,6 +393,8 @@ class NotificationTriggerService {
   Future<void> _notifyAllViewers({
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required NotificationType type,
     Map<String, dynamic>? metadata,
   }) async {
@@ -349,6 +409,8 @@ class NotificationTriggerService {
           targetUserId: doc.id,
           title: title,
           body: body,
+          titleAm: titleAm,
+          bodyAm: bodyAm,
           type: type,
           senderName: 'System',
           metadata: metadata,

@@ -138,21 +138,39 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  Future<String> _recipientLanguage(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final code = doc.data()?['language_code'];
+      if (code is String && code.toLowerCase().startsWith('am')) return 'am';
+    } catch (_) {}
+    return 'en';
+  }
+
   /// Send a ping to a specific user (Admin only)
   Future<void> sendPing({
     required String targetUserId,
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required String senderName,
     required String senderId,
   }) async {
     final cofizTitle = NotificationType.cofizTitle(title);
+    final cofizTitleAm =
+        titleAm == null ? null : NotificationType.cofizTitle(titleAm);
+    final lang = await _recipientLanguage(targetUserId);
+    final pushTitle = lang == 'am' ? (cofizTitleAm ?? cofizTitle) : cofizTitle;
+    final pushBody = lang == 'am' ? (bodyAm ?? body) : body;
     try {
       final notification = AppNotification(
         id: '',
         targetUserId: targetUserId,
         title: cofizTitle,
         body: body,
+        titleAm: cofizTitleAm,
+        bodyAm: bodyAm,
         type: NotificationType.ping,
         createdAt: DateTime.now(),
         senderName: senderName,
@@ -162,8 +180,8 @@ class NotificationProvider with ChangeNotifier {
       await _firestore.collection('notifications').add(notification.toFirestore());
       await _pushRelay.sendPush(
         targetUserId: targetUserId,
-        title: cofizTitle,
-        body: body,
+        title: pushTitle,
+        body: pushBody,
         type: NotificationType.ping.name,
       );
     } catch (e) {
@@ -177,6 +195,8 @@ class NotificationProvider with ChangeNotifier {
   Future<void> sendGlobalPing({
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required String senderName,
     required String senderId,
   }) async {
@@ -188,6 +208,8 @@ class NotificationProvider with ChangeNotifier {
           .get();
 
       final cofizTitle = NotificationType.cofizTitle(title);
+      final cofizTitleAm =
+          titleAm == null ? null : NotificationType.cofizTitle(titleAm);
       final batch = _firestore.batch();
 
       for (var doc in workersSnapshot.docs) {
@@ -197,6 +219,8 @@ class NotificationProvider with ChangeNotifier {
           targetUserId: doc.id,
           title: cofizTitle,
           body: body,
+          titleAm: cofizTitleAm,
+          bodyAm: bodyAm,
           type: NotificationType.dailyReportRequest,
           createdAt: DateTime.now(),
           senderName: senderName,
@@ -208,10 +232,11 @@ class NotificationProvider with ChangeNotifier {
 
       await batch.commit();
       for (var doc in workersSnapshot.docs) {
+        final lang = await _recipientLanguage(doc.id);
         await _pushRelay.sendPush(
           targetUserId: doc.id,
-          title: cofizTitle,
-          body: body,
+          title: lang == 'am' ? (cofizTitleAm ?? cofizTitle) : cofizTitle,
+          body: lang == 'am' ? (bodyAm ?? body) : body,
           type: NotificationType.dailyReportRequest.name,
         );
       }
