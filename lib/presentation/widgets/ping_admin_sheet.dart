@@ -208,6 +208,19 @@ class _PingAdminSheetState extends State<PingAdminSheet> {
                         (p) => ChoiceChip(
                           label: Text(p),
                           selected: _controller.text == p,
+                          selectedColor:
+                              AppColors.primary.withValues(alpha: 0.2),
+                          labelStyle: TextStyle(
+                            color: _controller.text == p
+                                ? AppColors.primary
+                                : (isDark ? Colors.white : Colors.black87),
+                          ),
+                          checkmarkColor: AppColors.primary,
+                          side: BorderSide(
+                            color: _controller.text == p
+                                ? AppColors.primary
+                                : Colors.grey.shade400,
+                          ),
                           onSelected: (_) {
                             _controller.text = p;
                             _controller.selection = TextSelection.fromPosition(
