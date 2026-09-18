@@ -51,6 +51,25 @@ void main() {
     expect(find.byIcon(Icons.add), findsNothing);
   });
 
+  testWidgets('admin sees only + with no type label when unset',
+      (tester) async {
+    final p = DailyPriceProvider(
+        firestore: FakeFirebaseFirestore(), companyId: 'cofiz');
+    await pump(tester, p, isAdmin: true);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Wet'), findsNothing);
+    expect(find.text('Dried'), findsNothing);
+    expect(find.text('Special'), findsNothing);
+  });
+
+  testWidgets('non-admin sees nothing when unset', (tester) async {
+    final p = DailyPriceProvider(
+        firestore: FakeFirebaseFirestore(), companyId: 'cofiz');
+    await pump(tester, p, isAdmin: false);
+    expect(find.byIcon(Icons.add), findsNothing);
+    expect(find.textContaining('not set'), findsNothing);
+  });
+
   testWidgets('modal prefills yesterday price and saves', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final fake = FakeFirebaseFirestore();
