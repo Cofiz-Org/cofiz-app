@@ -97,13 +97,14 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mark a notification as read (optimistic: UI updates instantly).
   Future<void> markAsRead(String notificationId) async {
     final index = _notifications.indexWhere((n) => n.id == notificationId);
+    var flipped = false;
     if (index != -1 && !_notifications[index].isRead) {
       _notifications[index] = _notifications[index].copyWith(isRead: true);
       _unreadCount = _notifications.where((n) => !n.isRead).length;
       notifyListeners();
+      flipped = true;
     }
     try {
       await _firestore
@@ -112,7 +113,7 @@ class NotificationProvider with ChangeNotifier {
           .update({'isRead': true});
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
-      if (index != -1) {
+      if (flipped && index != -1) {
         _notifications[index] =
             _notifications[index].copyWith(isRead: false);
         _unreadCount = _notifications.where((n) => !n.isRead).length;
@@ -121,24 +122,33 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  /// Mark ALL unread notifications as read (full collection, not just page).
   Future<void> markAllAsRead() async {
+    List<QueryDocumentSnapshot> unread;
     try {
       final snap = await _firestore
           .collection('notifications')
           .where('targetUserId', isEqualTo: _currentUserId)
           .where('isRead', isEqualTo: false)
           .get();
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.update(doc.reference, {'isRead': true});
+      unread = snap.docs;
+    } catch (e) {
+      debugPrint('Error marking all as read: $e');
+      return;
+    }
+    if (unread.isEmpty) return;
+    try {
+      for (var i = 0; i < unread.length; i += 500) {
+        final batch = _firestore.batch();
+        for (final doc in unread.skip(i).take(500)) {
+          batch.update(doc.reference, {'isRead': true});
+        }
+        await batch.commit();
       }
       _notifications = [
         for (final n in _notifications) n.copyWith(isRead: true),
       ];
       _unreadCount = 0;
       notifyListeners();
-      if (snap.docs.isNotEmpty) await batch.commit();
     } catch (e) {
       debugPrint('Error marking all as read: $e');
     }

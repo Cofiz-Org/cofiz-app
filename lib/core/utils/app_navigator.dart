@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/debt_model.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
+import '../../presentation/screens/reports/reports_screen.dart';
 import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/transaction/all_debts_screen.dart';
 import '../../presentation/screens/transaction/collector_debts_screen.dart';
@@ -31,6 +32,8 @@ class AppNavigator {
         return const SettingsScreen();
       case 'dailyPriceSet':
         return const NotificationsScreen();
+      case 'dailyReportRequest':
+        return const ReportsScreen();
       case 'debtRecorded':
       case 'debtRepaid':
       case 'debtReminder':

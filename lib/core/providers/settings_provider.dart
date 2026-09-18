@@ -7,6 +7,17 @@ import '../utils/date_formatter.dart';
 class SettingsProvider with ChangeNotifier {
   final FirebaseFirestore _firestore;
 
+  static Future<void> syncLanguageCode(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString('language_code') ?? 'en';
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({'language_code': code}, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
   bool _emailNotifications = true;
   bool _pushNotifications = true;
   Locale _locale = const Locale('en');

@@ -144,12 +144,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Provider.of<DailyPriceProvider>(
                                     context,
                                     listen: false);
-                            final old = provider
-                                .priceFor(provider.selectedType);
+                            final before =
+                                Map<String, double>.from(provider.prices);
                             final saved =
                                 await showDailyPriceModal(context);
                             if (saved == null || !context.mounted) return;
-                            if (old == saved) return;
+                            final after = provider.prices;
+                            var changed = before.length != after.length;
+                            if (!changed) {
+                              for (final e in after.entries) {
+                                if (before[e.key] != e.value) {
+                                  changed = true;
+                                  break;
+                                }
+                              }
+                            }
+                            if (!changed) return;
                             final name =
                                 authProvider.appUser?.displayName ?? 'Admin';
                             unawaited(NotificationTriggerService()

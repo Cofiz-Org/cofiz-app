@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/fcm_service.dart';
 import '../services/offline_cache_service.dart';
 import '../models/user_model.dart';
+import 'settings_provider.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -72,6 +73,7 @@ class AuthProvider with ChangeNotifier {
         }
         await _fetchUserData(user.uid);
         unawaited(FCMService().saveTokenForUser(user.uid));
+        unawaited(SettingsProvider.syncLanguageCode(user.uid));
         _status = AuthStatus.authenticated;
         notifyListeners();
       } else {
