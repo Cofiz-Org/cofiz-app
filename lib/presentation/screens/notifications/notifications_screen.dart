@@ -231,11 +231,15 @@ class NotificationsScreen extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: TextButton(
                               onPressed: () {
-                                
-                                
                                 Provider.of<NotificationProvider>(context,
                                         listen: false)
                                     .markAsRead(notification.id);
+                                final meta = <String, String>{};
+                                notification.metadata?.forEach((k, v) {
+                                  meta[k.toString()] = v.toString();
+                                });
+                                AppNavigator.openNotificationType(
+                                    notification.type.name, meta);
                               },
                               child: Text(
                                   AppLocalizations.of(context)!.submitReport),
