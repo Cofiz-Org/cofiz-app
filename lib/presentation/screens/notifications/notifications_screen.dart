@@ -131,6 +131,9 @@ class NotificationsScreen extends StatelessWidget {
   Widget _buildNotificationItem(
       BuildContext context, AppNotification notification) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final title = notification.resolvedTitle(languageCode);
+    final body = notification.resolvedBody(languageCode);
 
     final theme = Theme.of(context);
     final cardColor = theme.cardColor; 
@@ -188,7 +191,7 @@ class NotificationsScreen extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              notification.title,
+                              title,
                               style: TextStyle(
                                 fontWeight: notification.isRead
                                     ? FontWeight.normal
@@ -211,7 +214,7 @@ class NotificationsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        notification.body,
+                        body,
                         style: TextStyle(
                           fontSize: 14,
                           color: isDark
@@ -228,11 +231,15 @@ class NotificationsScreen extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: TextButton(
                               onPressed: () {
-                                
-                                
                                 Provider.of<NotificationProvider>(context,
                                         listen: false)
                                     .markAsRead(notification.id);
+                                final meta = <String, String>{};
+                                notification.metadata?.forEach((k, v) {
+                                  meta[k.toString()] = v.toString();
+                                });
+                                AppNavigator.openNotificationType(
+                                    notification.type.name, meta);
                               },
                               child: Text(
                                   AppLocalizations.of(context)!.submitReport),

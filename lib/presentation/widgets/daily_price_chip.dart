@@ -22,13 +22,13 @@ class DailyPriceChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: () => prices.setSelectedType(_next(type)),
-          child: Text(typeLabel,
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ),
-        const SizedBox(width: 6),
-        if (price != null)
+        if (price != null) ...[
+          GestureDetector(
+            onTap: () => prices.setSelectedType(_next(type)),
+            child: Text(typeLabel,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ),
+          const SizedBox(width: 6),
           GestureDetector(
             onTap: isAdmin ? onEditRequested : null,
             child: Text('${price.toStringAsFixed(0)}/kg',
@@ -36,16 +36,15 @@ class DailyPriceChip extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
-          )
-        else if (isAdmin)
+          ),
+        ] else if (isAdmin)
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white, size: 28),
             tooltip: l10n?.setDailyPrice ?? 'Set daily price',
             onPressed: onEditRequested,
           )
         else
-          Text(l10n?.priceNotSetYet ?? "Today's price not set yet",
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox.shrink(),
       ],
     );
   }

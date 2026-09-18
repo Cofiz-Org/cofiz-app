@@ -140,18 +140,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           isAdmin: authProvider.appUser?.role.canManagePrices ??
                               false,
                           onEditRequested: () async {
+                            final provider =
+                                Provider.of<DailyPriceProvider>(
+                                    context,
+                                    listen: false);
+                            final before =
+                                Map<String, double>.from(provider.prices);
                             final saved =
                                 await showDailyPriceModal(context);
                             if (saved == null || !context.mounted) return;
-                            final prices = Provider.of<DailyPriceProvider>(
-                                context,
-                                listen: false);
-                            final name = authProvider.appUser?.displayName ??
-                                'Admin';
+                            final after = provider.prices;
+                            var changed = before.length != after.length;
+                            if (!changed) {
+                              for (final e in after.entries) {
+                                if (before[e.key] != e.value) {
+                                  changed = true;
+                                  break;
+                                }
+                              }
+                            }
+                            if (!changed) return;
+                            final name =
+                                authProvider.appUser?.displayName ?? 'Admin';
                             unawaited(NotificationTriggerService()
                                 .notifyDailyPriceSet(
                               setByName: name,
-                              prices: prices.prices,
+                              prices: provider.prices,
                               senderId: authProvider.appUser?.uid,
                             ));
                           },

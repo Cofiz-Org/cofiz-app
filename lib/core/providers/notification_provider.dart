@@ -97,45 +97,70 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mark a notification as read
   Future<void> markAsRead(String notificationId) async {
+    final index = _notifications.indexWhere((n) => n.id == notificationId);
+    var flipped = false;
+    if (index != -1 && !_notifications[index].isRead) {
+      _notifications[index] = _notifications[index].copyWith(isRead: true);
+      _unreadCount = _notifications.where((n) => !n.isRead).length;
+      notifyListeners();
+      flipped = true;
+    }
     try {
-      // Optimistic update
-      final index = _notifications.indexWhere((n) => n.id == notificationId);
-      if (index != -1 && !_notifications[index].isRead) {
-        // Create a copy with isRead = true
-        // We can't easily modify the list since it's from the stream,
-        // but the stream update will come shortly.
-        // For instant UI feedback we wait for Firestore stream.
-        await _firestore
-            .collection('notifications')
-            .doc(notificationId)
-            .update({
-          'isRead': true,
-        });
-      }
+      await _firestore
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'isRead': true});
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
+      if (flipped && index != -1) {
+        _notifications[index] =
+            _notifications[index].copyWith(isRead: false);
+        _unreadCount = _notifications.where((n) => !n.isRead).length;
+        notifyListeners();
+      }
     }
   }
 
-  /// Mark all visible notifications as read
   Future<void> markAllAsRead() async {
+    List<QueryDocumentSnapshot> unread;
     try {
-      final batch = _firestore.batch();
-      final unreadDocs = _notifications.where((n) => !n.isRead);
-
-      for (var doc in unreadDocs) {
-        final ref = _firestore.collection('notifications').doc(doc.id);
-        batch.update(ref, {'isRead': true});
-      }
-
-      if (unreadDocs.isNotEmpty) {
+      final snap = await _firestore
+          .collection('notifications')
+          .where('targetUserId', isEqualTo: _currentUserId)
+          .where('isRead', isEqualTo: false)
+          .get();
+      unread = snap.docs;
+    } catch (e) {
+      debugPrint('Error marking all as read: $e');
+      return;
+    }
+    if (unread.isEmpty) return;
+    try {
+      for (var i = 0; i < unread.length; i += 500) {
+        final batch = _firestore.batch();
+        for (final doc in unread.skip(i).take(500)) {
+          batch.update(doc.reference, {'isRead': true});
+        }
         await batch.commit();
       }
+      _notifications = [
+        for (final n in _notifications) n.copyWith(isRead: true),
+      ];
+      _unreadCount = 0;
+      notifyListeners();
     } catch (e) {
       debugPrint('Error marking all as read: $e');
     }
+  }
+
+  Future<String> _recipientLanguage(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final code = doc.data()?['language_code'];
+      if (code is String && code.toLowerCase().startsWith('am')) return 'am';
+    } catch (_) {}
+    return 'en';
   }
 
   /// Send a ping to a specific user (Admin only)
@@ -143,16 +168,25 @@ class NotificationProvider with ChangeNotifier {
     required String targetUserId,
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required String senderName,
     required String senderId,
   }) async {
     final cofizTitle = NotificationType.cofizTitle(title);
+    final cofizTitleAm =
+        titleAm == null ? null : NotificationType.cofizTitle(titleAm);
+    final lang = await _recipientLanguage(targetUserId);
+    final pushTitle = lang == 'am' ? (cofizTitleAm ?? cofizTitle) : cofizTitle;
+    final pushBody = lang == 'am' ? (bodyAm ?? body) : body;
     try {
       final notification = AppNotification(
         id: '',
         targetUserId: targetUserId,
         title: cofizTitle,
         body: body,
+        titleAm: cofizTitleAm,
+        bodyAm: bodyAm,
         type: NotificationType.ping,
         createdAt: DateTime.now(),
         senderName: senderName,
@@ -162,8 +196,8 @@ class NotificationProvider with ChangeNotifier {
       await _firestore.collection('notifications').add(notification.toFirestore());
       await _pushRelay.sendPush(
         targetUserId: targetUserId,
-        title: cofizTitle,
-        body: body,
+        title: pushTitle,
+        body: pushBody,
         type: NotificationType.ping.name,
       );
     } catch (e) {
@@ -177,6 +211,8 @@ class NotificationProvider with ChangeNotifier {
   Future<void> sendGlobalPing({
     required String title,
     required String body,
+    String? titleAm,
+    String? bodyAm,
     required String senderName,
     required String senderId,
   }) async {
@@ -188,6 +224,8 @@ class NotificationProvider with ChangeNotifier {
           .get();
 
       final cofizTitle = NotificationType.cofizTitle(title);
+      final cofizTitleAm =
+          titleAm == null ? null : NotificationType.cofizTitle(titleAm);
       final batch = _firestore.batch();
 
       for (var doc in workersSnapshot.docs) {
@@ -197,6 +235,8 @@ class NotificationProvider with ChangeNotifier {
           targetUserId: doc.id,
           title: cofizTitle,
           body: body,
+          titleAm: cofizTitleAm,
+          bodyAm: bodyAm,
           type: NotificationType.dailyReportRequest,
           createdAt: DateTime.now(),
           senderName: senderName,
@@ -208,10 +248,11 @@ class NotificationProvider with ChangeNotifier {
 
       await batch.commit();
       for (var doc in workersSnapshot.docs) {
+        final lang = await _recipientLanguage(doc.id);
         await _pushRelay.sendPush(
           targetUserId: doc.id,
-          title: cofizTitle,
-          body: body,
+          title: lang == 'am' ? (cofizTitleAm ?? cofizTitle) : cofizTitle,
+          body: lang == 'am' ? (bodyAm ?? body) : body,
           type: NotificationType.dailyReportRequest.name,
         );
       }

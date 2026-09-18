@@ -62,6 +62,8 @@ class AppNotification {
   final String targetUserId;
   final String title;
   final String body;
+  final String? titleAm;
+  final String? bodyAm;
   final NotificationType type;
   final bool isRead;
   final DateTime createdAt;
@@ -74,6 +76,8 @@ class AppNotification {
     required this.targetUserId,
     required this.title,
     required this.body,
+    this.titleAm,
+    this.bodyAm,
     this.type = NotificationType.info,
     this.isRead = false,
     required this.createdAt,
@@ -82,12 +86,30 @@ class AppNotification {
     this.metadata,
   });
 
+  String resolvedTitle(String languageCode) {
+    if (languageCode.toLowerCase().startsWith('am') &&
+        (titleAm?.isNotEmpty ?? false)) {
+      return titleAm!;
+    }
+    return title;
+  }
+
+  String resolvedBody(String languageCode) {
+    if (languageCode.toLowerCase().startsWith('am') &&
+        (bodyAm?.isNotEmpty ?? false)) {
+      return bodyAm!;
+    }
+    return body;
+  }
+
   factory AppNotification.fromFirestore(Map<String, dynamic> data, String id) {
     return AppNotification(
       id: id,
       targetUserId: data['targetUserId'] ?? '',
       title: data['title'] ?? '',
       body: data['body'] ?? '',
+      titleAm: data['title_am'],
+      bodyAm: data['body_am'],
       type: NotificationType.values.firstWhere(
         (e) => e.name == data['type'],
         orElse: () => NotificationType.info,
@@ -107,6 +129,8 @@ class AppNotification {
       'targetUserId': targetUserId,
       'title': title,
       'body': body,
+      if (titleAm != null) 'title_am': titleAm,
+      if (bodyAm != null) 'body_am': bodyAm,
       'type': type.name,
       'isRead': isRead,
       'createdAt': createdAt.millisecondsSinceEpoch,
@@ -121,6 +145,8 @@ class AppNotification {
     String? targetUserId,
     String? title,
     String? body,
+    String? titleAm,
+    String? bodyAm,
     NotificationType? type,
     bool? isRead,
     DateTime? createdAt,
@@ -133,6 +159,8 @@ class AppNotification {
       targetUserId: targetUserId ?? this.targetUserId,
       title: title ?? this.title,
       body: body ?? this.body,
+      titleAm: titleAm ?? this.titleAm,
+      bodyAm: bodyAm ?? this.bodyAm,
       type: type ?? this.type,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,

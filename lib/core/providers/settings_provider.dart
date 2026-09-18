@@ -7,6 +7,17 @@ import '../utils/date_formatter.dart';
 class SettingsProvider with ChangeNotifier {
   final FirebaseFirestore _firestore;
 
+  static Future<void> syncLanguageCode(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString('language_code') ?? 'en';
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({'language_code': code}, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
   bool _emailNotifications = true;
   bool _pushNotifications = true;
   Locale _locale = const Locale('en');
@@ -175,12 +186,18 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setDouble('distribution_limit', limit);
   }
 
-  Future<void> setLocale(Locale locale) async {
+  Future<void> setLocale(Locale locale, {String? uid}) async {
     if (_locale == locale) return;
     _locale = locale;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', locale.languageCode);
+    if (uid != null) {
+      try {
+        await _firestore.collection('users').doc(uid).set(
+            {'language_code': locale.languageCode}, SetOptions(merge: true));
+      } catch (_) {}
+    }
     final hasExplicitCalendar = prefs.containsKey('calendar_type_v1');
     if (!hasExplicitCalendar) {
       _calendarType = locale.languageCode == 'am' ? CalendarType.ethiopian : CalendarType.gregorian;

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/coffee_types.dart';
 import '../../core/providers/daily_price_provider.dart';
+import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
 
 Future<double?> showDailyPriceModal(BuildContext context) {
@@ -45,6 +46,7 @@ class _DailyPriceSheetState extends State<_DailyPriceSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -60,6 +62,16 @@ class _DailyPriceSheetState extends State<_DailyPriceSheet> {
                     ButtonSegment(value: t, label: Text(_label(l10n, t))))
                 .toList(),
             selected: {_type},
+            style: SegmentedButton.styleFrom(
+              selectedBackgroundColor: AppColors.primary,
+              selectedForegroundColor: Colors.white,
+              foregroundColor:
+                  isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+              side: BorderSide(
+                color:
+                    isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+              ),
+            ),
             onSelectionChanged: (s) => _pick(s.first),
           ),
           const SizedBox(height: 12),
