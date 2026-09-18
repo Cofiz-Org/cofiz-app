@@ -644,7 +644,7 @@ class SettingsScreen extends StatelessWidget {
             oldValue: settings.locale.languageCode,
             newValue: locale.languageCode,
           );
-          settings.setLocale(locale);
+          settings.setLocale(locale, uid: authProvider.user?.uid);
         }
         Navigator.pop(context);
       },

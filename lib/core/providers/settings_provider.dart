@@ -175,12 +175,18 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setDouble('distribution_limit', limit);
   }
 
-  Future<void> setLocale(Locale locale) async {
+  Future<void> setLocale(Locale locale, {String? uid}) async {
     if (_locale == locale) return;
     _locale = locale;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language_code', locale.languageCode);
+    if (uid != null) {
+      try {
+        await _firestore.collection('users').doc(uid).set(
+            {'language_code': locale.languageCode}, SetOptions(merge: true));
+      } catch (_) {}
+    }
     final hasExplicitCalendar = prefs.containsKey('calendar_type_v1');
     if (!hasExplicitCalendar) {
       _calendarType = locale.languageCode == 'am' ? CalendarType.ethiopian : CalendarType.gregorian;
