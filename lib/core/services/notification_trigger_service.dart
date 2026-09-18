@@ -306,7 +306,7 @@ class NotificationTriggerService {
     final parts = prices.entries
         .map((e) => '${e.key}: ETB ${e.value.toStringAsFixed(0)}/kg')
         .join(', ');
-    final body = 'Today\u2019s prices \u2014 $parts (set by $setByName)';
+    final body = 'Today\u2019s prices: $parts (set by $setByName)';
     for (final role in ['admin', 'worker', 'viewer']) {
       try {
         final snap = await _firestore

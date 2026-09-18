@@ -32,4 +32,24 @@ void main() {
     expect(docs.docs.length, 3);
     expect(requests.length, 3);
   });
+
+  test('daily price body contains no emdash', () async {
+    final firestore = FakeFirebaseFirestore();
+    final relay = PushRelayService(
+      firestore: firestore,
+      httpClient: MockClient((request) async {
+        expect(request.body.contains('\u2014'), isFalse);
+        return http.Response('{"sent":true}', 200);
+      }),
+      relayUrl: 'https://relay.example.com/push',
+      relaySecret: 'secret123',
+    );
+    await firestore.collection('users').doc('a1').set({'role': 'admin'});
+    final svc =
+        NotificationTriggerService(firestore: firestore, pushRelay: relay);
+    await svc.notifyDailyPriceSet(setByName: 'Admin', prices: {'wet': 380});
+    final docs = await firestore.collection('notifications').get();
+    expect(docs.docs.length, 1);
+    expect(docs.docs.first.data()['body'].contains('\u2014'), isFalse);
+  });
 }
