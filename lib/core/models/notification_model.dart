@@ -86,7 +86,6 @@ class AppNotification {
     this.metadata,
   });
 
-  /// Title in the recipient's locale, falling back to English.
   String resolvedTitle(String languageCode) {
     if (languageCode.toLowerCase().startsWith('am') &&
         (titleAm?.isNotEmpty ?? false)) {
@@ -95,7 +94,6 @@ class AppNotification {
     return title;
   }
 
-  /// Body in the recipient's locale, falling back to English.
   String resolvedBody(String languageCode) {
     if (languageCode.toLowerCase().startsWith('am') &&
         (bodyAm?.isNotEmpty ?? false)) {
