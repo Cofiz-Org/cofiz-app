@@ -1,3 +1,11 @@
+## v1.1.0
+
+- Notifications follow your app language: Amharic or English for every alert.
+- Daily price changes notify everyone right away.
+- Dashboard shows just the + button until today's price is set.
+- Marking notifications read is instant, and report requests open the reports screen.
+- Price picker and ping presets use the app orange.
+
 ## v1.0.5
 
 Notifications stay in the bell center with 30 per page.
