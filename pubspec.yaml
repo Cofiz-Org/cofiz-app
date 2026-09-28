@@ -45,7 +45,7 @@ dependencies:
   timezone: ^0.10.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  connectivity_plus: ^7.0.0
+  connectivity_plus: ^7.3.1
   package_info_plus: ^8.0.0
   flutter_dotenv: ^5.2.0
   local_auth: ^3.0.0
