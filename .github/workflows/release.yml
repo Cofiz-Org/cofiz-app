@@ -116,7 +116,7 @@ jobs:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
       - name: Attest APK provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: build/app/outputs/flutter-apk/app-release.apk
   publish:
